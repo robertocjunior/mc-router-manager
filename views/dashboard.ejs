@@ -4,12 +4,19 @@
   <div class="container-xl">
     <div class="row g-2 align-items-center">
       <div class="col">
-        <h2 class="page-title">Rotas Minecraft</h2>
+        <h2 class="page-title">Minecraft Routes</h2>
       </div>
-      <div class="col-auto ms-auto d-print-none">
+      <div class="col-auto ms-auto d-print-none d-flex gap-2">
+        <form action="/restart" method="POST">
+            <button type="submit" class="btn btn-secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-refresh" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+                Restart Service
+            </button>
+        </form>
+
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-new-route">
           <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-          Adicionar Rota
+          Add Route
         </button>
       </div>
     </div>
@@ -18,14 +25,25 @@
 
 <div class="page-body">
   <div class="container-xl">
+    
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        if(urlParams.get('message')) {
+            document.write('<div class="alert alert-success">' + urlParams.get('message') + '</div>');
+        }
+        if(urlParams.get('error')) {
+            document.write('<div class="alert alert-danger">' + urlParams.get('error') + '</div>');
+        }
+    </script>
+
     <div class="card">
       <div class="table-responsive">
         <table class="table table-vcenter card-table">
           <thead>
             <tr>
-              <th>Entrada (Origem)</th>
-              <th>Destino (Servidor)</th>
-              <th>Descrição</th>
+              <th>Ingress (Source)</th>
+              <th>Destination (Server)</th>
+              <th>Description</th>
               <th>Status</th>
               <th class="w-1"></th>
             </tr>
@@ -35,9 +53,9 @@
             <tr>
               <td>
                 <div class="d-flex flex-column">
-                  <span class="font-weight-bold mb-1"><%= route.sourceDomain || 'Qualquer' %></span>
+                  <span class="font-weight-bold mb-1 text-light"><%= (route.sourceDomain === '*' || route.sourceDomain === '') ? 'Default Route (*)' : route.sourceDomain %></span>
                   <div class="text-muted small">
-                    Porta: <span class="chip-addr"><%= route.listeningPort %></span>
+                    Port: <span class="chip-addr"><%= route.listeningPort %></span>
                   </div>
                 </div>
               </td>
@@ -49,11 +67,11 @@
               </td>
               <td class="text-muted"><%= route.description || '-' %></td>
               <td>
-                <span class="badge bg-success me-1"></span> Online
+                <span class="badge bg-success me-1"></span> Active
               </td>
               <td>
-                <form action="/routes/delete/<%= route.id %>" method="POST" onsubmit="return confirm('Tem certeza?');">
-                    <button type="submit" class="btn btn-ghost-danger btn-icon" title="Deletar">
+                <form action="/routes/delete/<%= route.id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this route?');">
+                    <button type="submit" class="btn btn-ghost-danger btn-icon" title="Delete">
                         <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="4" y1="7" x2="20" y2="7" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>
                     </button>
                 </form>
@@ -61,7 +79,7 @@
             </tr>
             <% }); %>
             <% if (routes.length === 0) { %>
-                <tr><td colspan="5" class="text-center py-5 text-muted">Nenhuma rota configurada.</td></tr>
+                <tr><td colspan="5" class="text-center py-5 text-muted">No routes configured yet.</td></tr>
             <% } %>
           </tbody>
         </table>
@@ -71,50 +89,51 @@
 </div>
 
 <div class="modal modal-blur fade" id="modal-new-route" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog modal-lg" role="document">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
     <form action="/routes/add" method="POST">
         <div class="modal-content">
         <div class="modal-header">
-            <h5 class="modal-title">Nova Rota de Proxy</h5>
+            <h5 class="modal-title">New Proxy Route</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
             
             <div class="row mb-3">
-                <div class="col-12 mb-2"><label class="form-label text-primary">Configurações de Entrada (Onde o jogador conecta)</label></div>
+                <div class="col-12 mb-2"><label class="form-label text-primary">Ingress Settings (Player Connects Here)</label></div>
                 <div class="col-lg-8">
-                    <label class="form-label">Endereço de Entrada (Domínio)</label>
-                    <input type="text" class="form-control" name="sourceDomain" placeholder="jogar.meuserver.com">
+                    <label class="form-label">Domain Address (or * for Default)</label>
+                    <input type="text" class="form-control" name="sourceDomain" placeholder="play.myserver.com" required>
+                    <small class="form-hint">Do not use http://. Use * for a catch-all route.</small>
                 </div>
                 <div class="col-lg-4">
-                    <label class="form-label">Porta de Entrada</label>
-                    <input type="number" class="form-control" name="listeningPort" placeholder="25565" required>
+                    <label class="form-label">Listening Port</label>
+                    <input type="number" class="form-control" name="listeningPort" placeholder="25565" value="25565" required>
                 </div>
             </div>
 
             <hr class="my-4">
 
             <div class="row mb-3">
-                <div class="col-12 mb-2"><label class="form-label text-green">Configurações de Destino (Onde o servidor está)</label></div>
+                <div class="col-12 mb-2"><label class="form-label text-success">Destination Settings (Backend Server)</label></div>
                 <div class="col-lg-8">
-                    <label class="form-label">IP ou Endereço do Servidor</label>
+                    <label class="form-label">Backend IP or Hostname</label>
                     <input type="text" class="form-control" name="destHost" placeholder="192.168.1.50" required>
                 </div>
                 <div class="col-lg-4">
-                    <label class="form-label">Porta do Servidor</label>
+                    <label class="form-label">Backend Port</label>
                     <input type="number" class="form-control" name="destPort" placeholder="25565" required>
                 </div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Descrição</label>
-                <input type="text" class="form-control" name="description" placeholder="Ex: Survival Principal">
+                <label class="form-label">Description (Optional)</label>
+                <input type="text" class="form-control" name="description" placeholder="e.g. Main Survival Server">
             </div>
 
         </div>
         <div class="modal-footer">
-            <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</a>
-            <button type="submit" class="btn btn-primary ms-auto">Salvar Rota</button>
+            <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancel</a>
+            <button type="submit" class="btn btn-primary ms-auto">Save Route</button>
         </div>
         </div>
     </form>

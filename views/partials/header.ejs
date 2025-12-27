@@ -1,26 +1,25 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
     <title>MC Router Manager</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css" rel="stylesheet"/>
     <style>
       @import url('https://rsms.me/inter/inter.css');
-      :root { 
-          --tblr-font-sans-serif: 'Inter Var', -apple-system, sans-serif; 
+      :root {
+      	--tblr-font-sans-serif: 'Inter Var', -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif;
       }
-      body { 
-          font-feature-settings: "cv03", "cv04", "cv11"; 
+      body {
+      	font-feature-settings: "cv03", "cv04", "cv11";
       }
-      /* Pequenos ajustes para chips de IP/Porta */
       .chip-addr {
-          background-color: #2c2e36;
+          background: #1f2937;
+          color: #9ca3af;
           padding: 2px 6px;
           border-radius: 4px;
           font-family: monospace;
-          color: #efefef;
-          border: 1px solid #444;
       }
     </style>
   </head>
@@ -28,23 +27,28 @@
     <div class="page">
       <header class="navbar navbar-expand-md navbar-dark d-print-none">
         <div class="container-xl">
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu">
+            <span class="navbar-toggler-icon"></span>
+          </button>
           <h1 class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3">
-            <a href="/">MC Router Manager</a>
+            <a href="/">
+              <img src="https://ui-avatars.com/api/?name=MC&background=206bc4&color=fff" width="32" height="32" alt="MC" class="navbar-brand-image">
+              MC Router Manager
+            </a>
           </h1>
           <div class="navbar-nav flex-row order-md-last">
             <div class="nav-item dropdown">
-              <a href="#" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown">
-                <span class="avatar avatar-sm" style="background-image: url(https://ui-avatars.com/api/?name=<%= user.name %>&background=random)"></span>
+              <a href="#" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open user menu">
+                <span class="avatar avatar-sm" style="background-image: url(https://ui-avatars.com/api/?name=<%= user ? user.username : 'A' %>)"></span>
                 <div class="d-none d-xl-block ps-2">
-                  <div><%= user.name %></div>
-                  <div class="mt-1 small text-muted"><%= user.email %></div>
+                  <div><%= user ? user.username : 'Admin' %></div>
+                  <div class="mt-1 small text-muted">Administrator</div>
                 </div>
               </a>
               <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-                <a href="/logout" class="dropdown-item">Sair</a>
+                <a href="/logout" class="dropdown-item">Logout</a>
               </div>
             </div>
           </div>
         </div>
       </header>
-      <div class="page-wrapper">

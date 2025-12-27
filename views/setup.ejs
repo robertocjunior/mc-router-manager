@@ -1,41 +1,39 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
     <title>Setup - MC Router Manager</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css" rel="stylesheet"/>
+    <style>@import url('https://rsms.me/inter/inter.css'); :root { --tblr-font-sans-serif: 'Inter Var', -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif; } body { font-feature-settings: "cv03", "cv04", "cv11"; }</style>
   </head>
-  <body class="d-flex flex-column theme-dark">
+  <body class=" d-flex flex-column">
     <div class="page page-center">
       <div class="container container-tight py-4">
         <div class="text-center mb-4">
-          <h1>MC Router Manager</h1>
+          <h1>Initial Setup</h1>
         </div>
+        <% if (typeof error !== 'undefined') { %>
+            <div class="alert alert-danger"><%= error %></div>
+        <% } %>
         <div class="card card-md">
           <div class="card-body">
-            <h2 class="h2 text-center mb-4">Configuração Inicial</h2>
-            <p class="text-muted text-center mb-4">Crie sua conta de Administrador (Master User) para começar.</p>
-            
-            <% if (error) { %>
-                <div class="alert alert-danger"><%= error %></div>
-            <% } %>
-
+            <h2 class="h2 text-center mb-4">Create Admin Account</h2>
             <form action="/setup" method="POST">
               <div class="mb-3">
-                <label class="form-label">Nome Completo</label>
-                <input type="text" name="name" class="form-control" placeholder="Username" required>
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" placeholder="admin" required>
               </div>
               <div class="mb-3">
-                <label class="form-label">Endereço de E-mail</label>
-                <input type="email" name="email" class="form-control" placeholder="admin@exemplo.com" required>
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" placeholder="Strong password" required>
               </div>
               <div class="mb-3">
-                <label class="form-label">Senha</label>
-                <input type="password" name="password" class="form-control" placeholder="Sua senha segura" required>
+                <label class="form-label">Confirm Password</label>
+                <input type="password" name="confirmPassword" class="form-control" placeholder="Repeat password" required>
               </div>
               <div class="form-footer">
-                <button type="submit" class="btn btn-primary w-100">Criar Administrador</button>
+                <button type="submit" class="btn btn-primary w-100">Create Account</button>
               </div>
             </form>
           </div>

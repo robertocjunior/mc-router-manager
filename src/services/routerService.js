@@ -12,11 +12,11 @@ class RouterService {
     async syncAndRestart() {
         db.all("SELECT * FROM routes", async (err, rows) => {
             if (err) {
-                console.error("Erro ao ler DB:", err);
+                console.error("Error reading DB:", err);
                 return;
             }
 
-            // CORREÇÃO: 'mappings' deve ser um Objeto {}, não Array []
+            // CORRECTION: 'mappings' must be an Object {}, not an Array []
             const config = {
                 "default-server": null,
                 "mappings": {} 
@@ -26,24 +26,23 @@ class RouterService {
                 const domain = r.sourceDomain.toLowerCase().trim();
                 const backend = `${r.destHost}:${r.destPort}`;
 
-                // Se for * ou vazio, é o default-server
+                // If * or empty, it's the default-server
                 if (domain === '*' || domain === '') {
                     config["default-server"] = backend;
                 } else {
-                    // Mapeamento Chave(Domínio) = Valor(Backend)
+                    // Mapping Key(Domain) = Value(Backend)
                     config.mappings[domain] = backend;
                 }
             });
 
-            // Se o default-server for null, o mc-router pode reclamar se não tiver mappings
-            // Mas vamos manter a estrutura padrão
+            // If default-server is null, remove it to avoid issues
             if (!config["default-server"]) delete config["default-server"];
 
-            // Salva o arquivo
+            // Save file
             await fs.writeJson(this.configPath, config, { spaces: 2 });
             
-            console.log('Configuração salva. Reiniciando serviço automaticamente...');
-            console.log('Conteúdo Gerado (JSON):', JSON.stringify(config));
+            console.log('Configuration saved. Restarting service automatically...');
+            console.log('Generated Content (JSON):', JSON.stringify(config));
 
             this.restart();
         });
@@ -52,12 +51,12 @@ class RouterService {
     start() {
         if (this.process) return;
 
-        // Cria arquivo inicial válido (objeto vazio para mappings)
+        // Create valid initial file if not exists
         if (!fs.existsSync(this.configPath)) {
             fs.writeJsonSync(this.configPath, { "mappings": {} });
         }
 
-        console.log('Iniciando mc-router...');
+        console.log('Starting mc-router...');
         
         this.process = spawn('mc-router', [
             '-routes-config=' + this.configPath, 
@@ -67,14 +66,14 @@ class RouterService {
         });
 
         this.process.on('close', (code) => {
-            console.log(`mc-router parou (código ${code})`);
+            console.log(`mc-router stopped (code ${code})`);
             this.process = null;
         });
     }
 
     stop() {
         if (this.process) {
-            console.log('Parando processo mc-router atual...');
+            console.log('Stopping current mc-router process...');
             this.process.kill();
             this.process = null;
         }
