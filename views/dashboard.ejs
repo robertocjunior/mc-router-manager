@@ -6,14 +6,7 @@
       <div class="col">
         <h2 class="page-title">Rotas Minecraft</h2>
       </div>
-      <div class="col-auto ms-auto d-print-none d-flex gap-2">
-        <form action="/restart" method="POST">
-            <button type="submit" class="btn btn-secondary">
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-refresh" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
-                Reiniciar Serviço
-            </button>
-        </form>
-
+      <div class="col-auto ms-auto d-print-none">
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-new-route">
           <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
           Adicionar Rota
@@ -25,14 +18,6 @@
 
 <div class="page-body">
   <div class="container-xl">
-    
-    <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        if(urlParams.get('message')) {
-            document.write('<div class="alert alert-success">' + urlParams.get('message') + '</div>');
-        }
-    </script>
-
     <div class="card">
       <div class="table-responsive">
         <table class="table table-vcenter card-table">
@@ -50,7 +35,7 @@
             <tr>
               <td>
                 <div class="d-flex flex-column">
-                  <span class="font-weight-bold mb-1 text-light"><%= route.sourceDomain || 'Qualquer' %></span>
+                  <span class="font-weight-bold mb-1"><%= route.sourceDomain || 'Qualquer' %></span>
                   <div class="text-muted small">
                     Porta: <span class="chip-addr"><%= route.listeningPort %></span>
                   </div>
@@ -67,7 +52,7 @@
                 <span class="badge bg-success me-1"></span> Online
               </td>
               <td>
-                <form action="/routes/delete/<%= route.id %>" method="POST" onsubmit="return confirm('Tem certeza que deseja remover esta rota?');">
+                <form action="/routes/delete/<%= route.id %>" method="POST" onsubmit="return confirm('Tem certeza?');">
                     <button type="submit" class="btn btn-ghost-danger btn-icon" title="Deletar">
                         <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="4" y1="7" x2="20" y2="7" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>
                     </button>
@@ -86,7 +71,7 @@
 </div>
 
 <div class="modal modal-blur fade" id="modal-new-route" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+  <div class="modal-dialog modal-lg" role="document">
     <form action="/routes/add" method="POST">
         <div class="modal-content">
         <div class="modal-header">
@@ -99,19 +84,18 @@
                 <div class="col-12 mb-2"><label class="form-label text-primary">Configurações de Entrada (Onde o jogador conecta)</label></div>
                 <div class="col-lg-8">
                     <label class="form-label">Endereço de Entrada (Domínio)</label>
-                    <input type="text" class="form-control" name="sourceDomain" placeholder="jogar.meuserver.com" required>
-                    <small class="form-hint">Não use http:// ou https://, apenas o domínio.</small>
+                    <input type="text" class="form-control" name="sourceDomain" placeholder="jogar.meuserver.com">
                 </div>
                 <div class="col-lg-4">
                     <label class="form-label">Porta de Entrada</label>
-                    <input type="number" class="form-control" name="listeningPort" placeholder="25565" value="25565" required>
+                    <input type="number" class="form-control" name="listeningPort" placeholder="25565" required>
                 </div>
             </div>
 
             <hr class="my-4">
 
             <div class="row mb-3">
-                <div class="col-12 mb-2"><label class="form-label text-success">Configurações de Destino (Onde o servidor está)</label></div>
+                <div class="col-12 mb-2"><label class="form-label text-green">Configurações de Destino (Onde o servidor está)</label></div>
                 <div class="col-lg-8">
                     <label class="form-label">IP ou Endereço do Servidor</label>
                     <input type="text" class="form-control" name="destHost" placeholder="192.168.1.50" required>
@@ -123,7 +107,7 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Descrição (Opcional)</label>
+                <label class="form-label">Descrição</label>
                 <input type="text" class="form-control" name="description" placeholder="Ex: Survival Principal">
             </div>
 

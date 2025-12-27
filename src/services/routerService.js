@@ -9,6 +9,7 @@ class RouterService {
         this.configPath = path.join(process.cwd(), 'mc-router-config.json');
     }
 
+    // Lê do SQLite, gera o JSON correto e reinicia
     async syncAndRestart() {
         db.all("SELECT * FROM routes", async (err, rows) => {
             if (err) {
@@ -16,7 +17,8 @@ class RouterService {
                 return;
             }
 
-            // O mc-router espera uma lista de objetos JSON
+            // CORREÇÃO 1: Formato JSON simplificado (Array de objetos)
+            // Também forçamos minúsculas no domínio para evitar erros de digitação
             const config = rows.map(r => ({
                 serverAddress: r.sourceDomain.toLowerCase().trim(),
                 backend: `${r.destHost}:${r.destPort}`
@@ -24,11 +26,10 @@ class RouterService {
 
             // Salva o arquivo
             await fs.writeJson(this.configPath, config, { spaces: 2 });
-            console.log('Configuração salva. Reiniciando serviço...');
             
-            // Log do que foi salvo para debug
-            console.log('Conteúdo:', JSON.stringify(config));
-            
+            console.log('Configuração salva. Reiniciando serviço automaticamente...');
+            console.log('Conteúdo Gerado:', JSON.stringify(config)); // Log para debug
+
             this.restart();
         });
     }
@@ -36,19 +37,17 @@ class RouterService {
     start() {
         if (this.process) return;
 
+        // Garante que o arquivo exista, mesmo que vazio (array vazio)
         if (!fs.existsSync(this.configPath)) {
             fs.writeJsonSync(this.configPath, []);
         }
 
         console.log('Iniciando mc-router...');
         
-        // --- CORREÇÃO AQUI ---
-        // Usamos -routes-config para ele ler o ARQUIVO JSON
-        // Usamos -debug para ver o que está acontecendo
-        // -api-binding habilita a API (opcional, mas bom ter)
+        // CORREÇÃO 2: Usa -routes-config para ler do arquivo e -debug para ver erros
         this.process = spawn('mc-router', [
             '-routes-config=' + this.configPath, 
-            '-debug'
+            '-debug' 
         ], {
             stdio: 'inherit'
         });
@@ -61,6 +60,7 @@ class RouterService {
 
     stop() {
         if (this.process) {
+            console.log('Parando processo mc-router atual...');
             this.process.kill();
             this.process = null;
         }
@@ -68,7 +68,8 @@ class RouterService {
 
     restart() {
         this.stop();
-        setTimeout(() => this.start(), 2000); // Um pouco mais de tempo para garantir
+        // Espera um pouco para garantir que a porta foi liberada antes de subir de novo
+        setTimeout(() => this.start(), 1500);
     }
 }
 
