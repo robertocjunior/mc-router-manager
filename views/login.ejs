@@ -1,57 +1,39 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-    <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
     <title>Login - MC Router Manager</title>
-    <link href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css" rel="stylesheet"/>
-    <style>
-      @import url('https://rsms.me/inter/inter.css');
-      :root {
-      	--tblr-font-sans-serif: 'Inter Var', -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif;
-      }
-      body {
-      	font-feature-settings: "cv03", "cv04", "cv11";
-      }
-    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css">
   </head>
-  <body class=" d-flex flex-column">
+  <body class="d-flex flex-column theme-dark">
     <div class="page page-center">
       <div class="container container-tight py-4">
         <div class="text-center mb-4">
-          <a href="#" class="navbar-brand navbar-brand-autodark">
-            <img src="https://ui-avatars.com/api/?name=MC&background=206bc4&color=fff&size=64" height="36" alt="">
-            MC Router Manager
-          </a>
+          <h1>MC Router Manager</h1>
         </div>
-        
-        <% if (typeof error !== 'undefined') { %>
-            <div class="alert alert-danger"><%= error %></div>
-        <% } %>
-
         <div class="card card-md">
           <div class="card-body">
-            <h2 class="h2 text-center mb-4">Login to your account</h2>
-            <form action="/login" method="POST" autocomplete="off" novalidate>
+            <h2 class="h2 text-center mb-4">Acesse sua conta</h2>
+            <% if (error) { %>
+                <div class="alert alert-danger"><%= error %></div>
+            <% } %>
+            <form action="/login" method="POST">
               <div class="mb-3">
-                <label class="form-label">Username</label>
-                <input type="text" name="username" class="form-control" placeholder="Your username" autocomplete="off" required>
+                <label class="form-label">E-mail</label>
+                <input type="email" name="email" class="form-control" placeholder="seu@email.com" required>
               </div>
               <div class="mb-2">
-                <label class="form-label">Password</label>
-                <div class="input-group input-group-flat">
-                  <input type="password" name="password" class="form-control"  placeholder="Your password"  autocomplete="off" required>
-                </div>
+                <label class="form-label">Senha</label>
+                <input type="password" name="password" class="form-control" placeholder="Sua senha" required>
               </div>
               <div class="form-footer">
-                <button type="submit" class="btn btn-primary w-100">Sign in</button>
+                <button type="submit" class="btn btn-primary w-100">Entrar</button>
               </div>
             </form>
           </div>
         </div>
       </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/js/tabler.min.js"></script>
   </body>
 </html>

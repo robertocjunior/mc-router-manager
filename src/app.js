@@ -11,9 +11,9 @@ const indexRoutes = require('./routes/index');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security Config
+// Configuração de Segurança
 app.use(helmet({
-    // IMPORTANT: Disable HSTS to prevent browser from forcing HTTPS
+    // IMPORTANTE: Desativa o HSTS para o navegador parar de forçar HTTPS
     hsts: false, 
     contentSecurityPolicy: {
         directives: {
@@ -21,13 +21,13 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
             styleSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "rsms.me"],
             fontSrc: ["'self'", "rsms.me"],
-            // Added ui-avatars.com for profile icons
+            // Adicionado ui-avatars.com para os ícones de perfil funcionarem
             imgSrc: ["'self'", "data:", "cdn.jsdelivr.net", "ui-avatars.com"] 
         }
     }
 }));
 
-// Views Config
+// Configuração de Views
 app.set('views', path.join(__dirname, '../views'));
 app.set('view engine', 'ejs');
 
@@ -36,31 +36,31 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Session
+// Sessão
 app.use(session({
-    // Ensure session file is stored in persistent data folder
+    // Garante que o arquivo de sessão fique na pasta de dados persistente
     store: new SQLiteStore({ db: 'sessions.sqlite', dir: '/app/data' }), 
     secret: 'mc-router-secret-key-change-me',
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: false, // IMPORTANT: false to run on HTTP
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 1 week
+        secure: false, // IMPORTANTE: false para rodar em HTTP
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 1 semana
     }
 }));
 
-// Routes
+// Rotas
 app.use('/', authRoutes);
 app.use('/', indexRoutes);
 
-// Initialization
+// Inicialização
 app.listen(PORT, () => {
-    console.log(`Interface running on port ${PORT}`);
-    // Sync DB with JSON file and start service
+    console.log(`Interface rodando na porta ${PORT}`);
+    // Sincroniza DB com arquivo JSON e inicia serviço
     routerService.syncAndRestart();
 });
 
-// Graceful Shutdown
+// Encerramento gracioso
 process.on('SIGTERM', () => {
     routerService.stop();
     process.exit(0);

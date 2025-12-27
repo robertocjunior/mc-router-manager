@@ -19,16 +19,16 @@ router.post('/routes/add', (req, res) => {
     let { sourceDomain, listeningPort, destHost, destPort, description } = req.body;
     
     if (!listeningPort || !destHost || !destPort) {
-        return res.redirect('/?error=Missing required fields');
+        return res.redirect('/?error=Campos obrigatórios faltando');
     }
 
-    // --- AUTO CORRECTION ---
-    // Remove http://, https:// and trailing slashes
+    // --- CORREÇÃO AUTOMÁTICA ---
+    // Remove http://, https:// e barras finais do domínio
     if (sourceDomain) {
         sourceDomain = sourceDomain
-            .replace(/^https?:\/\//, '') // Remove protocol
-            .replace(/\/$/, '')          // Remove trailing slash
-            .toLowerCase();              // Ensure lowercase
+            .replace(/^https?:\/\//, '') // Remove protocolo
+            .replace(/\/$/, '')          // Remove barra final
+            .toLowerCase();              // Garante minúsculo
     }
 
     db.run(
@@ -37,7 +37,6 @@ router.post('/routes/add', (req, res) => {
         (err) => {
             if (err) {
                 console.error(err);
-                return res.redirect('/?error=Database error');
             } else {
                 routerService.syncAndRestart();
             }
@@ -51,13 +50,6 @@ router.post('/routes/delete/:id', (req, res) => {
         if (!err) routerService.syncAndRestart();
         res.redirect('/');
     });
-});
-
-// Route to Force Manual Restart
-router.post('/restart', (req, res) => {
-    console.log('Manual restart requested by user.');
-    routerService.restart();
-    res.redirect('/?message=Service Restarted Successfully');
 });
 
 module.exports = router;
