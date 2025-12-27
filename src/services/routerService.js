@@ -16,36 +16,34 @@ class RouterService {
                 return;
             }
 
-            // Estrutura exigida pelo itzg/mc-router
+            // CORREÇÃO: 'mappings' deve ser um Objeto {}, não Array []
             const config = {
-                "default-server": null, // Rota padrão (Curinga *)
-                "mappings": []          // Rotas normais
+                "default-server": null,
+                "mappings": {} 
             };
 
             rows.forEach(r => {
                 const domain = r.sourceDomain.toLowerCase().trim();
                 const backend = `${r.destHost}:${r.destPort}`;
 
-                // Se for * ou vazio, define como Default Server
+                // Se for * ou vazio, é o default-server
                 if (domain === '*' || domain === '') {
                     config["default-server"] = backend;
                 } else {
-                    // Caso contrário, adiciona na lista de mapeamentos
-                    config.mappings.push({
-                        serverAddress: domain,
-                        backend: backend
-                    });
+                    // Mapeamento Chave(Domínio) = Valor(Backend)
+                    config.mappings[domain] = backend;
                 }
             });
 
-            // Se não tiver mappings, garante array vazio para não quebrar o JSON
-            if (!config.mappings) config.mappings = [];
+            // Se o default-server for null, o mc-router pode reclamar se não tiver mappings
+            // Mas vamos manter a estrutura padrão
+            if (!config["default-server"]) delete config["default-server"];
 
             // Salva o arquivo
             await fs.writeJson(this.configPath, config, { spaces: 2 });
             
             console.log('Configuração salva. Reiniciando serviço automaticamente...');
-            console.log('Conteúdo Gerado (Final):', JSON.stringify(config));
+            console.log('Conteúdo Gerado (JSON):', JSON.stringify(config));
 
             this.restart();
         });
@@ -54,9 +52,9 @@ class RouterService {
     start() {
         if (this.process) return;
 
-        // Cria arquivo inicial válido se não existir
+        // Cria arquivo inicial válido (objeto vazio para mappings)
         if (!fs.existsSync(this.configPath)) {
-            fs.writeJsonSync(this.configPath, { "default-server": null, "mappings": [] });
+            fs.writeJsonSync(this.configPath, { "mappings": {} });
         }
 
         console.log('Iniciando mc-router...');
