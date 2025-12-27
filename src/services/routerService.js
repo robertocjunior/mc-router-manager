@@ -9,18 +9,19 @@ class RouterService {
         this.configPath = path.join(process.cwd(), 'mc-router-config.json');
     }
 
-    // Lê do SQLite e gera o arquivo JSON físico que o mc-router precisa
+    // Lê do SQLite e gera o JSON
     async syncAndRestart() {
-        db.all("SELECT serverAddress, listeningPort FROM routes", async (err, rows) => {
+        db.all("SELECT * FROM routes", async (err, rows) => {
             if (err) {
                 console.error("Erro ao ler DB:", err);
                 return;
             }
 
-            // Formato exigido pelo mc-router
+            // O mc-router espera "serverAddress" como "ip:porta"
+            // E "listeningPort" como inteiro
             const config = {
                 routes: rows.map(r => ({
-                    serverAddress: r.serverAddress,
+                    serverAddress: `${r.destHost}:${r.destPort}`,
                     listeningPort: parseInt(r.listeningPort)
                 }))
             };
@@ -34,7 +35,6 @@ class RouterService {
     start() {
         if (this.process) return;
 
-        // Garante que o arquivo existe antes de iniciar
         if (!fs.existsSync(this.configPath)) {
             fs.writeJsonSync(this.configPath, { routes: [] });
         }

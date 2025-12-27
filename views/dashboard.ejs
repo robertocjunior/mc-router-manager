@@ -1,138 +1,120 @@
 <%- include('partials/header') %>
 
-<div class="container-xl mt-4">
-  <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center py-3">
-      <h3 class="card-title h2 mb-0">Proxy Hosts</h3>
-      <div class="d-flex gap-2">
-        <div class="input-icon">
-          <span class="input-icon-addon">
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><circle cx="10" cy="10" r="7" /><line x1="21" y1="21" x2="15" y2="15" /></svg>
-          </span>
-          <input type="text" class="form-control" placeholder="Search..." style="background: #16171d; border-color: #333; width: 200px;">
-        </div>
-        <button class="btn btn-npm-primary" data-bs-toggle="modal" data-bs-target="#modal-new-route">
-          Add Proxy Host
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <h2 class="page-title">Rotas Minecraft</h2>
+      </div>
+      <div class="col-auto ms-auto d-print-none">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-new-route">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          Adicionar Rota
         </button>
       </div>
-    </div>
-    
-    <div class="table-responsive">
-      <table class="table table-vcenter card-table">
-        <thead>
-          <tr>
-            <th class="w-1"></th> <th>Source</th>
-            <th>Destination</th>
-            <th>Status</th>
-            <th class="w-1"></th> </tr>
-        </thead>
-        <tbody>
-          <% routes.forEach(function(route) { %>
-          <tr>
-            <td>
-              <span class="avatar bg-secondary-lt">MC</span>
-            </td>
-            <td>
-              <div class="d-flex flex-column">
-                <span class="text-white-strong mb-1">
-                  <span class="chip-domain"><%= route.sourceDomain || 'Qualquer Domínio' %></span>
-                </span>
-                <small class="text-muted">Porta Externa: <%= route.listeningPort %></small>
-              </div>
-            </td>
-            <td>
-              <div class="text-white-strong"><%= route.serverAddress %></div>
-              <% if(route.description) { %>
-                <div class="text-muted small"><%= route.description %></div>
-              <% } %>
-            </td>
-            <td>
-              <span class="badge-online">
-                <span class="dot-online"></span> Online
-              </span>
-            </td>
-            <td>
-              <div class="dropdown">
-                <button class="btn btn-icon btn-ghost-secondary" data-bs-toggle="dropdown">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /><circle cx="12" cy="5" r="1" /></svg>
-                </button>
-                <div class="dropdown-menu dropdown-menu-end bg-dark border-secondary">
-                  <form action="/routes/delete/<%= route.id %>" method="POST" onsubmit="return confirm('Deletar rota?');">
-                      <button type="submit" class="dropdown-item text-danger">Delete</button>
-                  </form>
-                </div>
-              </div>
-            </td>
-          </tr>
-          <% }); %>
-          <% if (routes.length === 0) { %>
-              <tr><td colspan="5" class="text-center py-5 text-muted">Nenhum Proxy Host configurado.</td></tr>
-          <% } %>
-        </tbody>
-      </table>
     </div>
   </div>
 </div>
 
-<div class="modal modal-blur fade" id="modal-new-route" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+<div class="page-body">
+  <div class="container-xl">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr>
+              <th>Entrada (Origem)</th>
+              <th>Destino (Servidor)</th>
+              <th>Descrição</th>
+              <th>Status</th>
+              <th class="w-1"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% routes.forEach(function(route) { %>
+            <tr>
+              <td>
+                <div class="d-flex flex-column">
+                  <span class="font-weight-bold mb-1"><%= route.sourceDomain || 'Qualquer' %></span>
+                  <div class="text-muted small">
+                    Porta: <span class="chip-addr"><%= route.listeningPort %></span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="d-flex align-items-center">
+                   <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-arrow-right text-muted me-2" width="20" height="20" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="5" y1="12" x2="19" y2="12" /><line x1="13" y1="18" x2="19" y2="12" /><line x1="13" y1="6" x2="19" y2="12" /></svg>
+                   <span class="chip-addr"><%= route.destHost %>:<%= route.destPort %></span>
+                </div>
+              </td>
+              <td class="text-muted"><%= route.description || '-' %></td>
+              <td>
+                <span class="badge bg-success me-1"></span> Online
+              </td>
+              <td>
+                <form action="/routes/delete/<%= route.id %>" method="POST" onsubmit="return confirm('Tem certeza?');">
+                    <button type="submit" class="btn btn-ghost-danger btn-icon" title="Deletar">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="4" y1="7" x2="20" y2="7" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>
+                    </button>
+                </form>
+              </td>
+            </tr>
+            <% }); %>
+            <% if (routes.length === 0) { %>
+                <tr><td colspan="5" class="text-center py-5 text-muted">Nenhuma rota configurada.</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="modal-new-route" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
     <form action="/routes/add" method="POST">
         <div class="modal-content">
         <div class="modal-header">
-            <h5 class="modal-title">Add Proxy Host</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            <h5 class="modal-title">Nova Rota de Proxy</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
             
-            <div class="mb-3">
-                <label class="form-label">Domain Names (Endereço de Entrada)</label>
-                <input type="text" class="form-control" name="sourceDomain" placeholder="mc.exemplo.com" required>
-                <small class="form-hint">Domínio que os jogadores usarão para conectar.</small>
-            </div>
-
-            <div class="row">
+            <div class="row mb-3">
+                <div class="col-12 mb-2"><label class="form-label text-primary">Configurações de Entrada (Onde o jogador conecta)</label></div>
+                <div class="col-lg-8">
+                    <label class="form-label">Endereço de Entrada (Domínio)</label>
+                    <input type="text" class="form-control" name="sourceDomain" placeholder="jogar.meuserver.com">
+                </div>
                 <div class="col-lg-4">
-                    <div class="mb-3">
-                        <label class="form-label">Porta de Entrada</label>
-                        <input type="number" class="form-control" name="listeningPort" placeholder="25565" required>
-                    </div>
+                    <label class="form-label">Porta de Entrada</label>
+                    <input type="number" class="form-control" name="listeningPort" placeholder="25565" required>
                 </div>
-                <div class="col-lg-5">
-                    <div class="mb-3">
-                        <label class="form-label">Forward Hostname / IP</label>
-                        <input type="text" class="form-control" name="serverAddress" placeholder="192.168.1.50:25565" required>
-                    </div>
-                </div>
-                <div class="col-lg-3">
-                    <div class="mb-3">
-                        <label class="form-label">Scheme</label>
-                        <select class="form-select bg-dark text-white border-secondary" disabled>
-                            <option selected>TCP</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mb-3">
-                <label class="form-label">Descrição (Opcional)</label>
-                <input type="text" class="form-control" name="description" placeholder="">
             </div>
 
-            <div class="mt-3">
-                <label class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" checked disabled>
-                    <span class="form-check-label">Block Common Exploits</span>
-                </label>
-                <label class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" checked disabled>
-                    <span class="form-check-label">Websockets Support</span>
-                </label>
+            <hr class="my-4">
+
+            <div class="row mb-3">
+                <div class="col-12 mb-2"><label class="form-label text-green">Configurações de Destino (Onde o servidor está)</label></div>
+                <div class="col-lg-8">
+                    <label class="form-label">IP ou Endereço do Servidor</label>
+                    <input type="text" class="form-control" name="destHost" placeholder="192.168.1.50" required>
+                </div>
+                <div class="col-lg-4">
+                    <label class="form-label">Porta do Servidor</label>
+                    <input type="number" class="form-control" name="destPort" placeholder="25565" required>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Descrição</label>
+                <input type="text" class="form-control" name="description" placeholder="Ex: Survival Principal">
             </div>
 
         </div>
         <div class="modal-footer">
-            <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancel</a>
-            <button type="submit" class="btn btn-npm-primary ms-auto">Save</button>
+            <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</a>
+            <button type="submit" class="btn btn-primary ms-auto">Salvar Rota</button>
         </div>
         </div>
     </form>
