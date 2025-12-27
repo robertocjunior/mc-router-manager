@@ -17,17 +17,19 @@ class RouterService {
                 return;
             }
 
-            // O mc-router espera "serverAddress" como "ip:porta"
-            // E "listeningPort" como inteiro
+            // CORREÇÃO CRÍTICA AQUI:
+            // serverAddress = O domínio que o jogador digita (Ex: mc.roberto...)
+            // backend = O IP:Porta para onde vamos mandar (Ex: 192.168.1.9:25566)
             const config = {
                 routes: rows.map(r => ({
-                    serverAddress: `${r.destHost}:${r.destPort}`,
+                    serverAddress: r.sourceDomain, 
+                    backend: `${r.destHost}:${r.destPort}`,
                     listeningPort: parseInt(r.listeningPort)
                 }))
             };
 
             await fs.writeJson(this.configPath, config, { spaces: 2 });
-            console.log('Configuração sincronizada. Reiniciando serviço...');
+            console.log('Configuração sincronizada (com correção de backend). Reiniciando serviço...');
             this.restart();
         });
     }
@@ -40,6 +42,7 @@ class RouterService {
         }
 
         console.log('Iniciando mc-router...');
+        // Passa o arquivo de configuração para o binário
         this.process = spawn('mc-router', ['-mapping=' + this.configPath], {
             stdio: 'inherit'
         });
