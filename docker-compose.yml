@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  app:
+    container_name: mc-manager
+    # Constrói a imagem baixando o código direto do seu GitHub
+    build: https://github.com/robertocjunior/mc-router-manager.git#main
+    ports:
+      - "3000:3000"   # Painel Web
+      - "25565:25565" # Porta de Entrada Minecraft
+    volumes:
+      # Cria a pasta 'data' localmente onde este arquivo estiver
+      - ./data:/app/data
+    restart: unless-stopped
