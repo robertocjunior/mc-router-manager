@@ -1,0 +1,42 @@
+<%- include('partials/header') %>
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <h2 class="page-title">Dashboard</h2>
+      </div>
+      <div class="col-auto ms-auto d-print-none">
+        <form action="/restart" method="POST">
+            <button type="submit" class="btn btn-primary">
+                Reiniciar Router
+            </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="page-body">
+  <div class="container-xl">
+    <div class="row row-cards">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Configuração Atual (JSON)</h3>
+          </div>
+          <div class="card-body">
+            <form action="/save" method="POST">
+              <div class="mb-3">
+                <label class="form-label">Edite o JSON de rotas</label>
+                <textarea class="form-control" name="configJson" rows="15" style="font-family: monospace;"><%= JSON.stringify(config, null, 2) %></textarea>
+              </div>
+              <div class="form-footer">
+                <button type="submit" class="btn btn-success w-100">Salvar Alterações</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('partials/footer') %>

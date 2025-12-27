@@ -1,0 +1,8 @@
+{
+  "routes": [
+    {
+      "serverAddress": "mc.exemplo.com:25565",
+      "listeningPort": 25565
+    }
+  ]
+}
