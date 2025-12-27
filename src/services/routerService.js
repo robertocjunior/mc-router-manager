@@ -9,7 +9,6 @@ class RouterService {
         this.configPath = path.join(process.cwd(), 'mc-router-config.json');
     }
 
-    // Lê do SQLite, gera o JSON correto e reinicia
     async syncAndRestart() {
         db.all("SELECT * FROM routes", async (err, rows) => {
             if (err) {
@@ -17,18 +16,19 @@ class RouterService {
                 return;
             }
 
-            // CORREÇÃO 1: Formato JSON simplificado (Array de objetos)
-            // Também forçamos minúsculas no domínio para evitar erros de digitação
-            const config = rows.map(r => ({
-                serverAddress: r.sourceDomain.toLowerCase().trim(),
-                backend: `${r.destHost}:${r.destPort}`
-            }));
+            // CORREÇÃO: O mc-router exige que o JSON tenha a chave "routes"
+            // Exemplo: { "routes": [ ... ] }
+            const config = {
+                routes: rows.map(r => ({
+                    serverAddress: r.sourceDomain.toLowerCase().trim(),
+                    backend: `${r.destHost}:${r.destPort}`
+                }))
+            };
 
-            // Salva o arquivo
             await fs.writeJson(this.configPath, config, { spaces: 2 });
             
             console.log('Configuração salva. Reiniciando serviço automaticamente...');
-            console.log('Conteúdo Gerado:', JSON.stringify(config)); // Log para debug
+            console.log('Conteúdo Gerado:', JSON.stringify(config));
 
             this.restart();
         });
@@ -37,17 +37,16 @@ class RouterService {
     start() {
         if (this.process) return;
 
-        // Garante que o arquivo exista, mesmo que vazio (array vazio)
+        // Se arquivo não existe, cria com estrutura válida { routes: [] }
         if (!fs.existsSync(this.configPath)) {
-            fs.writeJsonSync(this.configPath, []);
+            fs.writeJsonSync(this.configPath, { routes: [] });
         }
 
         console.log('Iniciando mc-router...');
         
-        // CORREÇÃO 2: Usa -routes-config para ler do arquivo e -debug para ver erros
         this.process = spawn('mc-router', [
             '-routes-config=' + this.configPath, 
-            '-debug' 
+            '-debug'
         ], {
             stdio: 'inherit'
         });
@@ -68,7 +67,6 @@ class RouterService {
 
     restart() {
         this.stop();
-        // Espera um pouco para garantir que a porta foi liberada antes de subir de novo
         setTimeout(() => this.start(), 1500);
     }
 }
