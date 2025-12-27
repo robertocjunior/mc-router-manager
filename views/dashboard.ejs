@@ -1,0 +1,93 @@
+<%- include('partials/header') %>
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <h2 class="page-title">Proxy Hosts (Minecraft)</h2>
+      </div>
+      <div class="col-auto ms-auto d-print-none">
+        <a href="#" class="btn btn-primary d-none d-sm-inline-block" data-bs-toggle="modal" data-bs-target="#modal-new-route">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          Add Proxy Host
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="page-body">
+  <div class="container-xl">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Entrada (Porta)</th>
+              <th>Destino (IP:Porta)</th>
+              <th>Descrição</th>
+              <th class="w-1">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% routes.forEach(function(route) { %>
+            <tr>
+              <td><span class="badge bg-success me-1"></span> Online</td>
+              <td class="text-muted"><%= route.listeningPort %></td>
+              <td><%= route.serverAddress %></td>
+              <td class="text-secondary"><%= route.description || '-' %></td>
+              <td>
+                <form action="/routes/delete/<%= route.id %>" method="POST" onsubmit="return confirm('Deletar rota?');" style="display:inline;">
+                    <button type="submit" class="btn btn-ghost-danger btn-sm">Delete</button>
+                </form>
+              </td>
+            </tr>
+            <% }); %>
+            <% if (routes.length === 0) { %>
+                <tr><td colspan="5" class="text-center py-4">Nenhuma rota configurada.</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="modal-new-route" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <form action="/routes/add" method="POST">
+        <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Novo Proxy Host</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <div class="mb-3">
+                <label class="form-label">Descrição (Opcional)</label>
+                <input type="text" class="form-control" name="description" placeholder="Ex: Servidor Survival">
+            </div>
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label">Porta de Entrada (Listen)</label>
+                        <input type="number" class="form-control" name="listeningPort" placeholder="25565" required>
+                        <small class="form-hint">A porta que este container vai escutar.</small>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label">Endereço de Destino</label>
+                        <input type="text" class="form-control" name="serverAddress" placeholder="mc.exemplo.com:25565" required>
+                        <small class="form-hint">IP ou Domínio do servidor real.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</a>
+            <button type="submit" class="btn btn-primary ms-auto">Salvar</button>
+        </div>
+        </div>
+    </form>
+  </div>
+</div>
+<%- include('partials/footer') %>

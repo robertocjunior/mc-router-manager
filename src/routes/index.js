@@ -1,28 +1,40 @@
 const express = require('express');
 const router = express.Router();
+const db = require('../database/db');
 const routerService = require('../services/routerService');
+const authMiddleware = require('../middleware/auth');
 
-router.get('/', async (req, res) => {
-    const config = await routerService.getConfig();
-    res.render('index', { config });
+router.use(authMiddleware);
+
+// Dashboard: Lista rotas
+router.get('/', (req, res) => {
+    db.all("SELECT * FROM routes", (err, rows) => {
+        res.render('dashboard', { 
+            routes: rows, 
+            user: req.session.username 
+        });
+    });
 });
 
-router.post('/save', async (req, res) => {
-    try {
-        // Exemplo simples: recebe JSON do formulário
-        // Em produção, adicione validação (ex: Joi ou Zod)
-        const newConfig = JSON.parse(req.body.configJson);
-        await routerService.saveConfig(newConfig);
-        res.redirect('/?status=success');
-    } catch (error) {
-        console.error(error);
-        res.redirect('/?status=error');
-    }
+// Adicionar Rota
+router.post('/routes/add', (req, res) => {
+    const { serverAddress, listeningPort, description } = req.body;
+    db.run(
+        "INSERT INTO routes (serverAddress, listeningPort, description) VALUES (?, ?, ?)",
+        [serverAddress, listeningPort, description],
+        (err) => {
+            if (!err) routerService.syncAndRestart();
+            res.redirect('/');
+        }
+    );
 });
 
-router.post('/restart', (req, res) => {
-    routerService.restart();
-    res.redirect('/');
+// Deletar Rota
+router.post('/routes/delete/:id', (req, res) => {
+    db.run("DELETE FROM routes WHERE id = ?", [req.params.id], (err) => {
+        if (!err) routerService.syncAndRestart();
+        res.redirect('/');
+    });
 });
 
 module.exports = router;

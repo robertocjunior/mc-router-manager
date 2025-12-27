@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+    <title>Login - MC Router Manager</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta17/dist/css/tabler.min.css">
+  </head>
+  <body class="d-flex flex-column theme-dark">
+    <div class="page page-center">
+      <div class="container container-tight py-4">
+        <div class="text-center mb-4">
+          <h1>MC Router Manager</h1>
+        </div>
+        <div class="card card-md">
+          <div class="card-body">
+            <h2 class="h2 text-center mb-4">Acesse sua conta</h2>
+            <% if (error) { %>
+                <div class="alert alert-danger"><%= error %></div>
+            <% } %>
+            <form action="/login" method="POST">
+              <div class="mb-3">
+                <label class="form-label">Usuário</label>
+                <input type="text" name="username" class="form-control" placeholder="admin" required>
+              </div>
+              <div class="mb-2">
+                <label class="form-label">Senha</label>
+                <input type="password" name="password" class="form-control" placeholder="changeme" required>
+              </div>
+              <div class="form-footer">
+                <button type="submit" class="btn btn-primary w-100">Entrar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
