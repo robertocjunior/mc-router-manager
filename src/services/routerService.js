@@ -16,19 +16,36 @@ class RouterService {
                 return;
             }
 
-            // CORREÇÃO: O mc-router exige que o JSON tenha a chave "routes"
-            // Exemplo: { "routes": [ ... ] }
+            // Estrutura exigida pelo itzg/mc-router
             const config = {
-                routes: rows.map(r => ({
-                    serverAddress: r.sourceDomain.toLowerCase().trim(),
-                    backend: `${r.destHost}:${r.destPort}`
-                }))
+                "default-server": null, // Rota padrão (Curinga *)
+                "mappings": []          // Rotas normais
             };
 
+            rows.forEach(r => {
+                const domain = r.sourceDomain.toLowerCase().trim();
+                const backend = `${r.destHost}:${r.destPort}`;
+
+                // Se for * ou vazio, define como Default Server
+                if (domain === '*' || domain === '') {
+                    config["default-server"] = backend;
+                } else {
+                    // Caso contrário, adiciona na lista de mapeamentos
+                    config.mappings.push({
+                        serverAddress: domain,
+                        backend: backend
+                    });
+                }
+            });
+
+            // Se não tiver mappings, garante array vazio para não quebrar o JSON
+            if (!config.mappings) config.mappings = [];
+
+            // Salva o arquivo
             await fs.writeJson(this.configPath, config, { spaces: 2 });
             
             console.log('Configuração salva. Reiniciando serviço automaticamente...');
-            console.log('Conteúdo Gerado:', JSON.stringify(config));
+            console.log('Conteúdo Gerado (Final):', JSON.stringify(config));
 
             this.restart();
         });
@@ -37,9 +54,9 @@ class RouterService {
     start() {
         if (this.process) return;
 
-        // Se arquivo não existe, cria com estrutura válida { routes: [] }
+        // Cria arquivo inicial válido se não existir
         if (!fs.existsSync(this.configPath)) {
-            fs.writeJsonSync(this.configPath, { routes: [] });
+            fs.writeJsonSync(this.configPath, { "default-server": null, "mappings": [] });
         }
 
         console.log('Iniciando mc-router...');
