@@ -13,13 +13,16 @@ const PORT = process.env.PORT || 3000;
 
 // Configuração de Segurança
 app.use(helmet({
+    // IMPORTANTE: Desativa o HSTS para o navegador parar de forçar HTTPS
+    hsts: false, 
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
             scriptSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
             styleSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "rsms.me"],
             fontSrc: ["'self'", "rsms.me"],
-            imgSrc: ["'self'", "data:", "cdn.jsdelivr.net"]
+            // Adicionado ui-avatars.com para os ícones de perfil funcionarem
+            imgSrc: ["'self'", "data:", "cdn.jsdelivr.net", "ui-avatars.com"] 
         }
     }
 }));
@@ -35,11 +38,15 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Sessão
 app.use(session({
-    store: new SQLiteStore({ db: 'sessions.sqlite', dir: '.' }),
+    // Garante que o arquivo de sessão fique na pasta de dados persistente
+    store: new SQLiteStore({ db: 'sessions.sqlite', dir: '/app/data' }), 
     secret: 'mc-router-secret-key-change-me',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 } // 1 semana
+    cookie: { 
+        secure: false, // IMPORTANTE: false para rodar em HTTP
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 1 semana
+    }
 }));
 
 // Rotas
@@ -53,6 +60,7 @@ app.listen(PORT, () => {
     routerService.syncAndRestart();
 });
 
+// Encerramento gracioso
 process.on('SIGTERM', () => {
     routerService.stop();
     process.exit(0);
