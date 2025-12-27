@@ -11,19 +11,30 @@ router.get('/', (req, res) => {
     db.all("SELECT * FROM routes", (err, rows) => {
         res.render('dashboard', { 
             routes: rows, 
-            user: req.session.username 
+            user: req.session.user 
         });
     });
 });
 
 // Adicionar Rota
 router.post('/routes/add', (req, res) => {
-    const { serverAddress, listeningPort, description } = req.body;
+    const { sourceDomain, listeningPort, serverAddress, description } = req.body;
+    
+    // Validação básica
+    if (!listeningPort || !serverAddress) {
+        return res.redirect('/?error=Campos obrigatórios faltando');
+    }
+
     db.run(
-        "INSERT INTO routes (serverAddress, listeningPort, description) VALUES (?, ?, ?)",
-        [serverAddress, listeningPort, description],
+        "INSERT INTO routes (sourceDomain, listeningPort, serverAddress, description) VALUES (?, ?, ?, ?)",
+        [sourceDomain, listeningPort, serverAddress, description],
         (err) => {
-            if (!err) routerService.syncAndRestart();
+            if (err) {
+                console.error(err);
+                // Pode adicionar tratamento de erro de porta duplicada aqui
+            } else {
+                routerService.syncAndRestart();
+            }
             res.redirect('/');
         }
     );
