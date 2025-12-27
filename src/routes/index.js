@@ -16,11 +16,19 @@ router.get('/', (req, res) => {
 });
 
 router.post('/routes/add', (req, res) => {
-    // Recebendo os 4 campos + descrição
-    const { sourceDomain, listeningPort, destHost, destPort, description } = req.body;
+    let { sourceDomain, listeningPort, destHost, destPort, description } = req.body;
     
     if (!listeningPort || !destHost || !destPort) {
         return res.redirect('/?error=Campos obrigatórios faltando');
+    }
+
+    // --- CORREÇÃO AUTOMÁTICA ---
+    // Remove http://, https:// e barras finais do domínio
+    if (sourceDomain) {
+        sourceDomain = sourceDomain
+            .replace(/^https?:\/\//, '') // Remove protocolo
+            .replace(/\/$/, '')          // Remove barra final
+            .toLowerCase();              // Garante minúsculo
     }
 
     db.run(
@@ -29,7 +37,6 @@ router.post('/routes/add', (req, res) => {
         (err) => {
             if (err) {
                 console.error(err);
-                // Provável erro de porta duplicada
             } else {
                 routerService.syncAndRestart();
             }
