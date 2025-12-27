@@ -8,7 +8,7 @@
       <div class="col-auto ms-auto d-print-none">
         <form action="/restart" method="POST">
             <button type="submit" class="btn btn-primary">
-                Reiniciar Router
+                Restart Router
             </button>
         </form>
       </div>
@@ -21,16 +21,16 @@
       <div class="col-12">
         <div class="card">
           <div class="card-header">
-            <h3 class="card-title">Configuração Atual (JSON)</h3>
+            <h3 class="card-title">Current Configuration (JSON)</h3>
           </div>
           <div class="card-body">
             <form action="/save" method="POST">
               <div class="mb-3">
-                <label class="form-label">Edite o JSON de rotas</label>
+                <label class="form-label">Edit Routes JSON</label>
                 <textarea class="form-control" name="configJson" rows="15" style="font-family: monospace;"><%= JSON.stringify(config, null, 2) %></textarea>
               </div>
               <div class="form-footer">
-                <button type="submit" class="btn btn-success w-100">Salvar Alterações</button>
+                <button type="submit" class="btn btn-success w-100">Save Changes</button>
               </div>
             </form>
           </div>

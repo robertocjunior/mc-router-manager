@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
-const bcrypt = require('bcryptjs'); // <--- CORRIGIDO (estava constkq)
+const bcrypt = require('bcryptjs');
 
 // Rota de Login
 router.get('/login', (req, res) => {
@@ -17,9 +17,9 @@ router.post('/login', (req, res) => {
     
     // Busca por EMAIL
     db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
-        // CORRIGIDO: usa 'bcrypt'
         if (err || !user || !bcrypt.compareSync(password, user.password)) {
-            return res.render('login', { error: 'E-mail ou senha inválidos' });
+            // TRADUZIDO
+            return res.render('login', { error: 'Invalid email or password' });
         }
         
         // Salva na sessão
@@ -48,10 +48,10 @@ router.post('/setup', (req, res) => {
         const { name, email, password } = req.body;
         
         if (!name || !email || !password) {
-            return res.render('setup', { error: 'Todos os campos são obrigatórios' });
+            // TRADUZIDO
+            return res.render('setup', { error: 'All fields are required' });
         }
 
-        // CORRIGIDO: usa 'bcrypt' aqui também
         const hash = bcrypt.hashSync(password, 10);
 
         db.run("INSERT INTO users (name, email, password) VALUES (?, ?, ?)", 
@@ -59,7 +59,8 @@ router.post('/setup', (req, res) => {
             function(err) {
                 if (err) {
                     console.error(err);
-                    return res.render('setup', { error: 'Erro ao criar usuário. Tente novamente.' });
+                    // TRADUZIDO
+                    return res.render('setup', { error: 'Error creating user. Please try again.' });
                 }
                 // Loga o usuário automaticamente após criar
                 req.session.userId = this.lastID;

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
@@ -14,21 +14,21 @@
         </div>
         <div class="card card-md">
           <div class="card-body">
-            <h2 class="h2 text-center mb-4">Acesse sua conta</h2>
+            <h2 class="h2 text-center mb-4">Sign in to your account</h2>
             <% if (error) { %>
                 <div class="alert alert-danger"><%= error %></div>
             <% } %>
             <form action="/login" method="POST">
               <div class="mb-3">
-                <label class="form-label">E-mail</label>
-                <input type="email" name="email" class="form-control" placeholder="seu@email.com" required>
+                <label class="form-label">Email address</label>
+                <input type="email" name="email" class="form-control" placeholder="your@email.com" required>
               </div>
               <div class="mb-2">
-                <label class="form-label">Senha</label>
-                <input type="password" name="password" class="form-control" placeholder="Sua senha" required>
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" placeholder="Your password" required>
               </div>
               <div class="form-footer">
-                <button type="submit" class="btn btn-primary w-100">Entrar</button>
+                <button type="submit" class="btn btn-primary w-100">Sign in</button>
               </div>
             </form>
           </div>
