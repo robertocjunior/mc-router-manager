@@ -37,14 +37,14 @@
                 <div class="d-flex flex-column">
                   <span class="font-weight-bold mb-1"><%= route.sourceDomain || 'Any / Wildcard' %></span>
                   <div class="text-muted small">
-                    Port: <span class="chip-addr"><%= route.listeningPort %></span>
+                    Port: <span class="chip-addr">25565</span>
                   </div>
                 </div>
               </td>
               <td>
                 <div class="d-flex align-items-center">
                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-arrow-right text-muted me-2" width="20" height="20" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="5" y1="12" x2="19" y2="12" /><line x1="13" y1="18" x2="19" y2="12" /><line x1="13" y1="6" x2="19" y2="12" /></svg>
-                   <span class="chip-addr"><%= route.destHost %>:<%= route.destPort %></span>
+                  <span class="chip-addr"><%= route.destHost %>:<%= route.destPort %></span>
                 </div>
               </td>
               <td class="text-muted"><%= route.description || '-' %></td>
@@ -82,13 +82,10 @@
             
             <div class="row mb-3">
                 <div class="col-12 mb-2"><label class="form-label text-primary">Ingress Settings (Where the player connects)</label></div>
-                <div class="col-lg-8">
+                <div class="col-12">
                     <label class="form-label">Ingress Address (Domain)</label>
                     <input type="text" class="form-control" name="sourceDomain" placeholder="play.myserver.com">
-                </div>
-                <div class="col-lg-4">
-                    <label class="form-label">Ingress Port</label>
-                    <input type="number" class="form-control" name="listeningPort" placeholder="25565" required>
+                    <small class="form-hint">Listening on default port 25565</small>
                 </div>
             </div>
 

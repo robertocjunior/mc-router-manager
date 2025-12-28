@@ -16,10 +16,12 @@ router.get('/', (req, res) => {
 });
 
 router.post('/routes/add', (req, res) => {
-    let { sourceDomain, listeningPort, destHost, destPort, description } = req.body;
+    let { sourceDomain, destHost, destPort, description } = req.body;
     
-    if (!listeningPort || !destHost || !destPort) {
-        // TRADUZIDO
+    // Força sempre a porta 25565
+    const listeningPort = 25565;
+    
+    if (!destHost || !destPort) {
         return res.redirect('/?error=Missing required fields');
     }
 
