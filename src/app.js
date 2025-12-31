@@ -1,67 +1,75 @@
 const express = require('express');
+const session = require('express-session');
 const path = require('path');
 const helmet = require('helmet');
-const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
-const routerService = require('./services/routerService');
 
-const authRoutes = require('./routes/auth');
-const indexRoutes = require('./routes/index');
+// Inicializa Banco de Dados
+require('./database/db');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-// Configuração de Segurança
-app.use(helmet({
-    // IMPORTANTE: Desativa o HSTS para o navegador parar de forçar HTTPS
-    hsts: false, 
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
-            styleSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "rsms.me"],
-            fontSrc: ["'self'", "rsms.me"],
-            // Adicionado ui-avatars.com para os ícones de perfil funcionarem
-            imgSrc: ["'self'", "data:", "cdn.jsdelivr.net", "ui-avatars.com"] 
-        }
-    }
-}));
-
-// Configuração de Views
-app.set('views', path.join(__dirname, '../views'));
+// Configuração da View Engine (EJS)
 app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '../views'));
 
-// Middlewares
-app.use(express.json());
+// Middlewares de Parsing
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+// --- CORREÇÃO DE SEGURANÇA (CSP) ---
+// Isso permite que o File Manager e os botões funcionem corretamente
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "'unsafe-inline'"], // Permite scripts <script>
+        "script-src-attr": ["'self'", "'unsafe-inline'"], // Permite onclick="..."
+        "img-src": ["'self'", "data:", "blob:"], // Permite ícones
+        "connect-src": ["'self'"], // Permite o fetch (AJAX) do file manager
+      },
+    },
+  })
+);
+
+// Arquivos Estáticos (CSS, JS, Imagens)
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Sessão
+// Configuração da Sessão
 app.use(session({
-    // Garante que o arquivo de sessão fique na pasta de dados persistente
-    store: new SQLiteStore({ db: 'sessions.sqlite', dir: '/app/data' }), 
-    secret: 'mc-router-secret-key-change-me',
+    store: new SQLiteStore({
+        dir: './data',
+        db: 'sessions.sqlite'
+    }),
+    secret: 'mc-router-secret-key-change-me', // Em produção, mude isso
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: false, // IMPORTANTE: false para rodar em HTTP
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 1 semana
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 1 semana
+        httpOnly: true 
     }
 }));
 
-// Rotas
-app.use('/', authRoutes);
-app.use('/', indexRoutes);
-
-// Inicialização
-app.listen(PORT, () => {
-    console.log(`Interface rodando na porta ${PORT}`);
-    // Sincroniza DB com arquivo JSON e inicia serviço
-    routerService.syncAndRestart();
+// Variáveis Globais para as Views (Usuário Logado)
+app.use((req, res, next) => {
+    res.locals.user = req.session.user || null;
+    next();
 });
 
-// Encerramento gracioso
-process.on('SIGTERM', () => {
-    routerService.stop();
-    process.exit(0);
+// Rotas
+const indexRoutes = require('./routes/index');
+const authRoutes = require('./routes/auth');
+
+app.use('/', indexRoutes);
+app.use('/', authRoutes);
+
+// Iniciar Servidor
+app.listen(port, () => {
+    console.log(`Interface rodando na porta ${port}`);
+    
+    // Inicia o serviço de roteamento (Proxy)
+    const routerService = require('./services/routerService');
+    routerService.start();
 });
