@@ -10,9 +10,7 @@ const ROUTER_PORT = process.env.MC_ROUTER_PORT || 25565;
 
 router.use(authMiddleware);
 
-// Dashboard Principal
 router.get('/', (req, res) => {
-    // Só buscamos instâncias agora, as rotas manuais ficam ocultas ou gerenciadas internamente
     db.all("SELECT * FROM instances", (err, instances) => {
         res.render('dashboard', { 
             instances: instances || [], 
@@ -22,26 +20,34 @@ router.get('/', (req, res) => {
     });
 });
 
-// Página de Detalhes do Servidor
-router.get('/server/:id', (req, res) => {
+// Detalhes do Servidor (AGORA CARREGA AS PROPRIEDADES)
+router.get('/server/:id', async (req, res) => {
     const id = req.params.id;
+    
+    // Busca propriedades
+    let properties = "";
+    try {
+        properties = await instanceService.getProperties(id);
+    } catch (e) {
+        console.error("Erro ao ler properties", e);
+    }
+
     db.get("SELECT * FROM instances WHERE id = ?", [id], (err, instance) => {
         if (err || !instance) return res.redirect('/');
         res.render('server', { 
             instance, 
             user: req.session.user,
-            routerPort: ROUTER_PORT
+            routerPort: ROUTER_PORT,
+            properties // Envia para o frontend
         });
     });
 });
 
-// API para Logs (HTMX ou Polling pode usar isso)
 router.get('/server/:id/logs', async (req, res) => {
     const logs = await instanceService.getLogs(req.params.id);
     res.send(logs);
 });
 
-// Criar Servidor
 router.post('/instances/create', upload.single('serverJar'), async (req, res) => {
     try {
         const { name, domain, startCommand } = req.body;
@@ -56,7 +62,6 @@ router.post('/instances/create', upload.single('serverJar'), async (req, res) =>
     }
 });
 
-// Ações do Servidor
 router.post('/server/:id/start', async (req, res) => {
     await instanceService.startInstance(req.params.id);
     res.redirect('/server/' + req.params.id);
@@ -64,13 +69,28 @@ router.post('/server/:id/start', async (req, res) => {
 
 router.post('/server/:id/stop', async (req, res) => {
     instanceService.stopInstance(req.params.id);
-    // Espera um pouco para atualizar status no DB
     setTimeout(() => res.redirect('/server/' + req.params.id), 1000);
 });
 
 router.post('/server/:id/delete', async (req, res) => {
     await instanceService.deleteInstance(req.params.id);
     res.redirect('/');
+});
+
+// NOVA ROTA: SALVAR PROPRIEDADES E REINICIAR
+router.post('/server/:id/properties', async (req, res) => {
+    try {
+        const { content } = req.body;
+        await instanceService.saveProperties(req.params.id, content);
+        
+        // Se estiver rodando, reinicia
+        await instanceService.restartInstance(req.params.id);
+        
+        res.redirect('/server/' + req.params.id + '?success=Saved and Restarting');
+    } catch (error) {
+        console.error(error);
+        res.redirect('/server/' + req.params.id + '?error=Failed to save');
+    }
 });
 
 module.exports = router;

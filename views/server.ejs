@@ -31,49 +31,73 @@
 <div class="page-body">
   <div class="container-xl">
     
-    <div class="row row-cards">
-        <div class="col-md-4">
+    <div class="row">
+        <div class="col-md-3 mb-3">
             <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Information</h3>
-                </div>
                 <div class="card-body">
-                    <dl class="row">
-                        <dt class="col-5">Domain:</dt>
-                        <dd class="col-7"><%= instance.domain %></dd>
-                        
-                        <dt class="col-5">Public Address:</dt>
-                        <dd class="col-7"><%= instance.domain %>:<%= routerPort %></dd>
-
-                        <dt class="col-5">Internal Port:</dt>
-                        <dd class="col-7"><%= instance.port %></dd>
-
-                        <dt class="col-5">JAR File:</dt>
-                        <dd class="col-7"><%= instance.jarFile %></dd>
-
-                        <dt class="col-5">Status:</dt>
-                        <dd class="col-7">
-                            <% if (instance.status == 'running') { %>
-                                <span class="badge bg-success">Running</span>
-                            <% } else { %>
-                                <span class="badge bg-secondary">Stopped</span>
-                            <% } %>
-                        </dd>
-                    </dl>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <div class="form-control-plaintext font-weight-bold"><%= instance.domain %></div>
+                        <small class="text-muted">Port: <%= routerPort %></small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Internal Port</label>
+                        <div class="form-control-plaintext"><%= instance.port %></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <% if (instance.status == 'running') { %>
+                            <span class="badge bg-success w-100">Running</span>
+                        <% } else { %>
+                            <span class="badge bg-secondary w-100">Stopped</span>
+                        <% } %>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">JAR File</label>
+                        <div class="text-break small"><%= instance.jarFile %></div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-8">
+        <div class="col-md-9">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Console / Logs</h3>
-                    <div class="card-actions">
-                        <button onclick="fetchLogs()" class="btn btn-sm btn-secondary">Refresh</button>
-                    </div>
+                    <ul class="nav nav-tabs card-header-tabs" data-bs-toggle="tabs">
+                        <li class="nav-item">
+                            <a href="#tabs-console" class="nav-link active" data-bs-toggle="tab">Console</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#tabs-properties" class="nav-link" data-bs-toggle="tab">Server Properties</a>
+                        </li>
+                    </ul>
                 </div>
-                <div class="card-body p-0">
-                    <pre id="console-output" class="bg-dark text-light p-3" style="height: 400px; overflow-y: scroll; border-radius: 0 0 4px 4px; font-family: monospace; font-size: 12px;">Loading logs...</pre>
+                <div class="card-body">
+                    <div class="tab-content">
+                        
+                        <div class="tab-pane active show" id="tabs-console">
+                            <div class="d-flex justify-content-end mb-2">
+                                <button onclick="fetchLogs()" class="btn btn-sm btn-secondary">Refresh Logs</button>
+                            </div>
+                            <pre id="console-output" class="bg-dark text-light p-3" style="height: 500px; overflow-y: scroll; border-radius: 4px; font-family: monospace; font-size: 12px;">Loading logs...</pre>
+                        </div>
+
+                        <div class="tab-pane" id="tabs-properties">
+                            <form action="/server/<%= instance.id %>/properties" method="POST">
+                                <div class="mb-3">
+                                    <label class="form-label">server.properties</label>
+                                    <textarea class="form-control" name="content" rows="20" style="font-family: monospace;"><%= properties %></textarea>
+                                    <small class="form-hint text-warning">
+                                        Note: The <code>server-port</code> cannot be changed manually as it is managed by the router. It will be reset upon saving.
+                                    </small>
+                                </div>
+                                <div class="d-flex justify-content-end">
+                                    <button type="submit" class="btn btn-primary">Save & Restart Server</button>
+                                </div>
+                            </form>
+                        </div>
+
+                    </div>
                 </div>
             </div>
         </div>
@@ -83,19 +107,23 @@
 </div>
 
 <script>
-    // Script simples para buscar logs via API
     function fetchLogs() {
         const consoleEl = document.getElementById('console-output');
+        // Verifica se o elemento existe (caso esteja em outra aba)
+        if(!consoleEl) return;
+
         fetch('/server/<%= instance.id %>/logs')
             .then(res => res.text())
             .then(data => {
                 consoleEl.innerText = data || "No logs available yet.";
-                consoleEl.scrollTop = consoleEl.scrollHeight; // Auto scroll
+                // Auto scroll apenas se estiver perto do fundo
+                if(consoleEl.scrollHeight - consoleEl.scrollTop < 800) {
+                     consoleEl.scrollTop = consoleEl.scrollHeight;
+                }
             })
             .catch(err => consoleEl.innerText = "Error fetching logs.");
     }
 
-    // Atualiza logs a cada 3 segundos se estiver rodando
     fetchLogs();
     <% if (instance.status == 'running') { %>
         setInterval(fetchLogs, 3000);
