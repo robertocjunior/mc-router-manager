@@ -94,7 +94,9 @@
                   <td>
                     <div class="d-flex flex-column">
                       <span class="font-weight-bold mb-1"><%= route.sourceDomain || 'Any / Wildcard' %></span>
-                      <div class="text-muted small">Port: 25565</div>
+                      <div class="text-muted small">
+                        Port: <span class="chip-addr"><%= routerPort %></span>
+                      </div>
                     </div>
                   </td>
                   <td>
@@ -143,7 +145,7 @@
             <div class="mb-3">
                 <label class="form-label">Domain (Ingress)</label>
                 <input type="text" class="form-control" name="domain" placeholder="play.myserver.com" required>
-                <small class="form-hint">The router will automatically point this domain to your new server.</small>
+                <small class="form-hint">The router will verify traffic on port <%= routerPort %></small>
             </div>
 
             <div class="mb-3">
@@ -180,6 +182,7 @@
                 <div class="col-12">
                     <label class="form-label">Ingress Address (Domain)</label>
                     <input type="text" class="form-control" name="sourceDomain" placeholder="play.myserver.com">
+                    <small class="form-hint">Listening on port <%= routerPort %></small>
                 </div>
             </div>
             <hr class="my-4">

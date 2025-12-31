@@ -6,40 +6,33 @@ const routerService = require('../services/routerService');
 const instanceService = require('../services/instanceService');
 const authMiddleware = require('../middleware/auth');
 
-// Configuração de Upload (Arquivos temporários)
 const upload = multer({ dest: 'temp_uploads/' });
+// Pega a porta da env
+const ROUTER_PORT = process.env.MC_ROUTER_PORT || 25565;
 
 router.use(authMiddleware);
 
-// Rota do Dashboard (GET /)
 router.get('/', (req, res) => {
-    // Busca Rotas Proxy
     db.all("SELECT * FROM routes", (err, routes) => {
-        // Busca Servidores Locais (Instâncias)
         db.all("SELECT * FROM instances", (err2, instances) => {
             res.render('dashboard', { 
                 routes: routes || [], 
-                instances: instances || [], // Envia as instâncias para o frontend
-                user: req.session.user 
+                instances: instances || [], 
+                user: req.session.user,
+                // Passamos a porta para o EJS usar
+                routerPort: ROUTER_PORT 
             });
         });
     });
 });
 
-// --- Rota para criar NOVO SERVIDOR (Instância) ---
 router.post('/instances/create', upload.single('serverJar'), async (req, res) => {
     try {
         const { name, domain, startCommand } = req.body;
         const file = req.file;
+        if (!file || !name || !domain) return res.redirect('/?error=Missing fields');
 
-        if (!file || !name || !domain) {
-            return res.redirect('/?error=Missing fields');
-        }
-
-        // 1. Cria a instância
         const newInstance = await instanceService.createInstance(name, domain, file, startCommand);
-        
-        // 2. Tenta iniciar
         await instanceService.startInstance(newInstance.id);
 
         res.redirect('/');
@@ -49,10 +42,11 @@ router.post('/instances/create', upload.single('serverJar'), async (req, res) =>
     }
 });
 
-// --- Rotas Antigas de Proxy ---
 router.post('/routes/add', (req, res) => {
     let { sourceDomain, destHost, destPort, description } = req.body;
-    const listeningPort = 25565;
+    
+    // Usa a variável
+    const listeningPort = ROUTER_PORT;
     
     if (!destHost || !destPort) return res.redirect('/?error=Missing required fields');
 

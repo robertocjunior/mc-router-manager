@@ -7,56 +7,49 @@ const routerService = require('./routerService');
 class InstanceService {
     constructor() {
         this.instancesDir = path.join(process.cwd(), 'data', 'instances');
-        this.activeProcesses = {}; // Armazena processos em memória: { instanceId: ChildProcess }
-        
-        // Recarrega processos se o app reiniciar (Feature futura)
+        this.activeProcesses = {};
+        // Pega a porta configurada
+        this.routerPort = parseInt(process.env.MC_ROUTER_PORT || 25565);
     }
 
-    // Cria um novo servidor
     async createInstance(name, domain, file, customCommand) {
         return new Promise((resolve, reject) => {
-            // 1. Determina uma porta livre (Simples: começa em 25566 e incrementa)
             db.get("SELECT MAX(port) as maxPort FROM instances", async (err, row) => {
                 if (err) return reject(err);
                 
+                // Lógica inteligente de portas
                 let port = (row && row.maxPort) ? row.maxPort + 1 : 25566;
-                const instanceFolder = path.join(this.instancesDir, name);
-                const jarName = file.filename; // Nome salvo pelo Multer
+                
+                // SEGURANÇA: Se a porta calculada for igual à porta do Router, pula uma
+                if (port === this.routerPort) {
+                    port++;
+                }
 
-                // 2. Cria estrutura de pastas
+                const instanceFolder = path.join(this.instancesDir, name);
+                const jarName = file.filename;
+
                 try {
                     await fs.ensureDir(instanceFolder);
-                    // Move o arquivo de upload (temp) para a pasta da instância
                     await fs.move(file.path, path.join(instanceFolder, jarName));
-                    
-                    // Cria eula.txt automaticamente
                     await fs.writeFile(path.join(instanceFolder, 'eula.txt'), 'eula=true');
-                    
-                    // Cria server.properties básico para fixar a porta
                     await fs.writeFile(path.join(instanceFolder, 'server.properties'), `server-port=${port}\nonline-mode=false`);
-
                 } catch (ioErr) {
                     return reject(ioErr);
                 }
 
-                // 3. Comando de inicialização padrão ou customizado
-                // Se não vier comando, usa o padrão. Substitui {jar} pelo nome do arquivo.
                 let cmd = customCommand || 'java -Xmx1024M -Xms1024M -jar {jar} nogui';
                 cmd = cmd.replace('{jar}', jarName);
 
-                // 4. Salva no DB
                 db.run(
                     "INSERT INTO instances (name, domain, port, jarFile, startCommand) VALUES (?, ?, ?, ?, ?)",
                     [name, domain, port, jarName, cmd],
                     function (dbErr) {
                         if (dbErr) return reject(dbErr);
-                        
                         const instanceId = this.lastID;
 
-                        // 5. Adiciona a rota automaticamente no Router Service
-                        // Mapeia o domínio para localhost:porta
+                        // Usa a variável this.routerPort para salvar no banco corretamente
                         db.run("INSERT INTO routes (sourceDomain, listeningPort, destHost, destPort, description) VALUES (?, ?, ?, ?, ?)",
-                            [domain, 25565, '127.0.0.1', port, `Auto-generated for ${name}`],
+                            [domain, this.routerPort, '127.0.0.1', port, `Auto-generated for ${name}`],
                             (routeErr) => {
                                 if (!routeErr) routerService.syncAndRestart();
                             }
@@ -69,7 +62,6 @@ class InstanceService {
         });
     }
 
-    // Inicia o processo do servidor
     startInstance(id) {
         return new Promise((resolve, reject) => {
             db.get("SELECT * FROM instances WHERE id = ?", [id], (err, instance) => {
@@ -78,18 +70,17 @@ class InstanceService {
 
                 const instanceFolder = path.join(this.instancesDir, instance.name);
                 const args = instance.startCommand.split(' ');
-                const command = args.shift(); // 'java'
+                const command = args.shift();
 
                 console.log(`Iniciando servidor ${instance.name} na porta ${instance.port}...`);
 
                 const child = spawn(command, args, {
                     cwd: instanceFolder,
-                    stdio: 'inherit' // Por enquanto joga o log no console principal
+                    stdio: 'inherit'
                 });
 
                 this.activeProcesses[id] = child;
 
-                // Atualiza status
                 db.run("UPDATE instances SET status = 'running', pid = ? WHERE id = ?", [child.pid, id]);
 
                 child.on('close', (code) => {
