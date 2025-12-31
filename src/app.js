@@ -10,72 +10,64 @@ require('./database/db');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configuração da View Engine (EJS)
+// Configuração da View Engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 
-// Middlewares de Parsing
+// Middlewares
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// --- CORREÇÃO DE SEGURANÇA (CSP) ---
+// Segurança (Helmet) - Ajustado para rede local
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        // Permite scripts inline (onclick) e conexões da mesma origem (AJAX)
         "script-src": ["'self'", "'unsafe-inline'"],
         "script-src-attr": ["'self'", "'unsafe-inline'"],
         "img-src": ["'self'", "data:", "blob:"],
         "connect-src": ["'self'"],
-        // IMPORTANTE: Remove a regra que força HTTPS (corrige o loop de redirecionamento)
-        "upgrade-insecure-requests": null, 
+        "upgrade-insecure-requests": null, // Importante para evitar loop HTTPS local
       },
     },
-    // Desabilita HSTS para evitar forçar HTTPS em rede local
-    hsts: false, 
+    hsts: false, // Importante para evitar forçar HTTPS local
   })
 );
 
-// Arquivos Estáticos (CSS, JS, Imagens)
+// Arquivos Estáticos
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Configuração da Sessão
+// Sessão
 app.use(session({
-    store: new SQLiteStore({
-        dir: './data',
-        db: 'sessions.sqlite'
-    }),
+    store: new SQLiteStore({ dir: './data', db: 'sessions.sqlite' }),
     secret: 'mc-router-secret-key-change-me',
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 1 semana
+        maxAge: 1000 * 60 * 60 * 24 * 7, 
         httpOnly: true,
-        // Garante que secure seja false em localhost/http para não bloquear cookies
-        secure: false 
+        secure: false // Importante: false para funcionar sem HTTPS
     }
 }));
 
-// Variáveis Globais para as Views (Usuário Logado)
+// Variável Global de Usuário
 app.use((req, res, next) => {
     res.locals.user = req.session.user || null;
     next();
 });
 
-// Rotas
+// ROTAS
 const indexRoutes = require('./routes/index');
 const authRoutes = require('./routes/auth');
 
+// Monta as rotas na raiz
 app.use('/', indexRoutes);
-app.use('/', authRoutes);
+app.use('/', authRoutes); // Isso garante que /setup e /login funcionem na raiz
 
-// Iniciar Servidor
+// Inicia
 app.listen(port, () => {
     console.log(`Interface rodando na porta ${port}`);
-    
-    // Inicia o serviço de roteamento (Proxy)
     const routerService = require('./services/routerService');
     routerService.start();
 });

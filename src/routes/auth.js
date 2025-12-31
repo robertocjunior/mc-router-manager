@@ -1,67 +1,77 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
-const bcrypt = require('bcryptjs'); // Você precisará: npm install bcryptjs (se não tiver)
+const bcrypt = require('bcryptjs');
 
-// Página de Login
+// --- LOGIN ---
 router.get('/login', (req, res) => {
-    res.render('login', { error: req.query.error });
+    // Se não tem usuários, manda pro setup
+    db.get("SELECT count(*) as count FROM users", (err, row) => {
+        if (!err && row.count === 0) return res.redirect('/setup');
+        res.render('login', { error: req.query.error });
+    });
 });
 
-// Processar Login
-router.post('/auth/login', (req, res) => {
+router.post('/login', (req, res) => {
     const { email, password } = req.body;
     
     db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
         if (err || !user) {
-            return res.redirect('/login?error=Invalid credentials');
+            return res.render('login', { error: 'Invalid credentials' });
         }
-
-        // Verifica senha (simples ou hash)
-        // Recomendado usar bcrypt.compareSync se estiver salvando hash
-        // Para simplificar o teste inicial sem hash:
-        /* if (user.password !== password) ... */
         
-        // Com Hash (Recomendado):
+        // Verifica a senha
         if (!bcrypt.compareSync(password, user.password)) {
-             return res.redirect('/login?error=Invalid credentials');
+             return res.render('login', { error: 'Invalid credentials' });
         }
 
+        // Salva a sessão completa
         req.session.user = user;
-        res.redirect('/');
+        req.session.save(() => {
+            res.redirect('/');
+        });
     });
 });
 
-// Página de Setup (Primeiro Acesso)
+// --- SETUP (PRIMEIRO USO) ---
 router.get('/setup', (req, res) => {
-    res.render('setup', { error: req.query.error });
+    // Se já tem usuário, não deixa criar outro
+    db.get("SELECT count(*) as count FROM users", (err, row) => {
+        if (row && row.count > 0) return res.redirect('/login');
+        res.render('setup', { error: req.query.error });
+    });
 });
 
-// Processar Setup
-router.post('/auth/setup', (req, res) => {
-    const { name, email, password } = req.body;
+router.post('/setup', (req, res) => {
+    // Verificação de segurança dupla
+    db.get("SELECT count(*) as count FROM users", (err, row) => {
+        if (row && row.count > 0) return res.redirect('/login');
 
-    if (!name || !email || !password) {
-        return res.redirect('/setup?error=Missing fields');
-    }
-
-    // Criptografa senha
-    const hash = bcrypt.hashSync(password, 10);
-
-    db.run("INSERT INTO users (name, email, password) VALUES (?, ?, ?)", 
-        [name, email, hash], 
-        function(err) {
-            if (err) {
-                return res.redirect('/setup?error=' + encodeURIComponent(err.message));
-            }
-            // Loga automaticamente após criar
-            req.session.user = { id: this.lastID, name, email };
-            res.redirect('/');
+        const { name, email, password } = req.body;
+        if (!name || !email || !password) {
+            return res.render('setup', { error: 'Missing fields' });
         }
-    );
+
+        const hash = bcrypt.hashSync(password, 10);
+
+        db.run("INSERT INTO users (name, email, password) VALUES (?, ?, ?)", 
+            [name, email, hash], 
+            function(err) {
+                if (err) {
+                    return res.render('setup', { error: err.message });
+                }
+                
+                // Cria a sessão e loga automaticamente
+                req.session.user = { id: this.lastID, name, email };
+                req.session.save(() => {
+                    res.redirect('/');
+                });
+            }
+        );
+    });
 });
 
-// Logout
+// --- LOGOUT ---
 router.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
