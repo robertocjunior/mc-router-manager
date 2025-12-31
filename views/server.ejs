@@ -6,20 +6,21 @@
       <div class="col">
         <div class="page-pretitle">Server Management</div>
         <h2 class="page-title"><%= instance.name %></h2>
+        <div class="text-muted small">ID: <%= instance.uuid %></div>
       </div>
       <div class="col-auto ms-auto d-print-none">
         <div class="btn-list">
             <% if (instance.status == 'running') { %>
-                <form action="/server/<%= instance.id %>/stop" method="POST" style="display:inline;">
+                <form action="/server/<%= instance.uuid %>/stop" method="POST" style="display:inline;">
                     <button class="btn btn-danger">Stop Server</button>
                 </form>
             <% } else { %>
-                <form action="/server/<%= instance.id %>/start" method="POST" style="display:inline;">
+                <form action="/server/<%= instance.uuid %>/start" method="POST" style="display:inline;">
                     <button class="btn btn-success">Start Server</button>
                 </form>
             <% } %>
             
-            <form action="/server/<%= instance.id %>/delete" method="POST" onsubmit="return confirm('Delete this server and its files? This cannot be undone.');" style="display:inline;">
+            <form action="/server/<%= instance.uuid %>/delete" method="POST" onsubmit="return confirm('Delete this server and its files? This cannot be undone.');" style="display:inline;">
                 <button class="btn btn-ghost-danger">Delete</button>
             </form>
         </div>
@@ -128,7 +129,7 @@
                         </div>
 
                         <div class="tab-pane" id="tabs-properties">
-                            <form action="/server/<%= instance.id %>/properties" method="POST">
+                            <form action="/server/<%= instance.uuid %>/properties" method="POST">
                                 <div class="mb-3">
                                     <label class="form-label">server.properties</label>
                                     <textarea class="form-control" name="content" rows="20" style="font-family: monospace;"><%= properties %></textarea>
@@ -144,14 +145,14 @@
                             <div class="row mb-4">
                                 <div class="col-12">
                                     <h3>Download World</h3>
-                                    <a href="/server/<%= instance.id %>/world/download" class="btn btn-outline-primary">Dump World (.zip)</a>
+                                    <a href="/server/<%= instance.uuid %>/world/download" class="btn btn-outline-primary">Dump World (.zip)</a>
                                 </div>
                             </div>
                             <hr>
                             <div class="row mb-4">
                                 <div class="col-12">
                                     <h3 class="text-warning">Upload / Restore World</h3>
-                                    <form action="/server/<%= instance.id %>/world/upload" method="POST" enctype="multipart/form-data">
+                                    <form action="/server/<%= instance.uuid %>/world/upload" method="POST" enctype="multipart/form-data">
                                         <div class="row g-2">
                                             <div class="col-md-6"><input type="file" name="worldZip" class="form-control" accept=".zip" required></div>
                                             <div class="col-md-3"><input type="text" class="form-control" id="confirm-upload-input" placeholder="Type 'UPLOAD' to confirm" onkeyup="checkUploadConfirm()"></div>
@@ -164,7 +165,7 @@
                             <div class="row">
                                 <div class="col-12">
                                     <h3 class="text-danger">Recreate World (Reset)</h3>
-                                    <form action="/server/<%= instance.id %>/world/reset" method="POST">
+                                    <form action="/server/<%= instance.uuid %>/world/reset" method="POST">
                                         <div class="row g-2">
                                             <div class="col-md-9"><input type="text" class="form-control" id="confirm-reset-input" placeholder="Type 'RESET' to confirm deletion" onkeyup="checkResetConfirm()"></div>
                                             <div class="col-md-3"><button type="submit" id="btn-reset" class="btn btn-danger w-100" disabled>Delete & Regenerate</button></div>
@@ -249,7 +250,7 @@
     function fetchLogs() {
         const consoleEl = document.getElementById('console-output');
         if(!consoleEl) return;
-        fetch('/server/<%= instance.id %>/logs').then(r=>r.text()).then(d=>{
+        fetch('/server/<%= instance.uuid %>/logs').then(r=>r.text()).then(d=>{
             consoleEl.innerText = d || "No logs available.";
             if(consoleEl.scrollHeight - consoleEl.scrollTop < 800) consoleEl.scrollTop = consoleEl.scrollHeight;
         }).catch(e=>consoleEl.innerText="Error.");
@@ -259,7 +260,7 @@
 
     // FILE MANAGER LOGIC
     let currentPath = '';
-    const serverId = '<%= instance.id %>';
+    const serverId = '<%= instance.uuid %>'; // ALTERADO: Usa UUID
 
     async function loadFiles(path) {
         currentPath = path;
@@ -287,16 +288,10 @@
                 
                 let actions = `<div class="btn-list flex-nowrap">`;
                 
-                // Rename / Move
                 actions += `<button class="btn btn-sm btn-ghost-warning" onclick="openRenameModal('${fullPath}')" title="Rename / Move">Move</button>`;
-
-                // Delete
                 actions += `<button class="btn btn-sm btn-ghost-danger" onclick="deleteFile('${fullPath}')" title="Delete">Del</button>`;
-                
-                // Download
                 actions += `<a href="/server/${serverId}/files/download?path=${encodeURIComponent(fullPath)}" class="btn btn-sm btn-ghost-secondary" target="_blank" title="Download">Down</a>`;
 
-                // Edit (Texto)
                 if(!f.isDirectory && f.name.match(/\.(txt|json|yml|yaml|properties|log|md)$/i)) {
                     actions += `<button class="btn btn-sm btn-ghost-primary" onclick="editFile('${fullPath}', '${f.name}')">Edit</button>`;
                 }
