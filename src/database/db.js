@@ -1,13 +1,13 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const fs = require('fs-extra'); // Necessário para criar a pasta se não existir
+const fs = require('fs-extra');
 
-// Caminho para a pasta e para o arquivo
 const dataDir = path.join(__dirname, '../../data');
 const dbPath = path.join(dataDir, 'mc-router.sqlite');
 
-// GARANTIA: Cria a pasta 'data' se ela não existir
+// Garante pastas essenciais
 fs.ensureDirSync(dataDir);
+fs.ensureDirSync(path.join(dataDir, 'instances')); 
 
 const db = new sqlite3.Database(dbPath);
 
@@ -21,15 +21,28 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Tabela de Rotas
+    // Tabela de Rotas (Proxy)
     db.run(`CREATE TABLE IF NOT EXISTS routes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sourceDomain TEXT,      -- Endereço de entrada
-        listeningPort INTEGER,  -- Porta de entrada
-        destHost TEXT,          -- IP do Server
-        destPort INTEGER,       -- Porta do Server
+        sourceDomain TEXT,
+        listeningPort INTEGER,
+        destHost TEXT,
+        destPort INTEGER,
         description TEXT,
         is_online BOOLEAN DEFAULT 1
+    )`);
+
+    // NOVA: Tabela de Instâncias (Servidores Minecraft)
+    db.run(`CREATE TABLE IF NOT EXISTS instances (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE,      -- Nome do Node (ex: survival01)
+        domain TEXT,           -- Domínio (ex: vanilla.minecraft.com)
+        port INTEGER,          -- Porta interna (ex: 25566)
+        jarFile TEXT,          -- Nome do arquivo .jar
+        startCommand TEXT,     -- Comando customizado
+        status TEXT DEFAULT 'stopped',
+        pid INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 });
 

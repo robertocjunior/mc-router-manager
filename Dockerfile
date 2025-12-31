@@ -6,26 +6,25 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Instalar dependências do sistema necessárias
-RUN apk add --no-cache bash
+# Instalar dependências do sistema: Bash e Java 17 (Necessário para rodar Minecraft)
+RUN apk add --no-cache bash openjdk17-jre
 
-# --- CORREÇÃO AQUI ---
-# O binário original fica na raiz /mc-router, não em /usr/bin
+# Copiar binário do mc-router
 COPY --from=source /mc-router /usr/local/bin/mc-router
-
-# Garantir permissão de execução
 RUN chmod +x /usr/local/bin/mc-router
 
-# Copiar arquivos do projeto Node.js
+# Copiar dependências Node
 COPY package*.json ./
 RUN npm install --production
 
+# Copiar código fonte
 COPY . .
 
-# Porta da Interface Web
+# Criar estrutura de pastas para os servidores
+RUN mkdir -p /app/data/instances
+
+# Portas
 EXPOSE 3000
-# Porta padrão do Minecraft
 EXPOSE 25565
 
-# Iniciar aplicação
 CMD ["node", "src/app.js"]
