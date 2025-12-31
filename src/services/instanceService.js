@@ -8,9 +8,7 @@ class InstanceService {
     constructor() {
         this.instancesDir = path.join(process.cwd(), 'data', 'instances');
         this.activeProcesses = {};
-        // Pega a porta configurada
         this.routerPort = parseInt(process.env.MC_ROUTER_PORT || 25565);
-        // Armazena contagem de tentativas de reinício: { instanceId: 0 a 3 }
         this.retryCounters = {};
     }
 
@@ -20,8 +18,6 @@ class InstanceService {
                 if (err) return reject(err);
                 
                 let port = (row && row.maxPort) ? row.maxPort + 1 : 25566;
-                
-                // Pula a porta do router para evitar conflito
                 if (port === this.routerPort) port++;
 
                 const instanceFolder = path.join(this.instancesDir, name);
@@ -30,10 +26,10 @@ class InstanceService {
                 try {
                     await fs.ensureDir(instanceFolder);
                     await fs.move(file.path, path.join(instanceFolder, jarName));
-                    
-                    // Cria eula.txt e server.properties iniciais
                     await fs.writeFile(path.join(instanceFolder, 'eula.txt'), 'eula=true');
                     await fs.writeFile(path.join(instanceFolder, 'server.properties'), `server-port=${port}\nonline-mode=false`);
+                    // Cria arquivo de log vazio
+                    await fs.writeFile(path.join(instanceFolder, 'latest.log'), '');
                 } catch (ioErr) {
                     return reject(ioErr);
                 }
@@ -62,50 +58,82 @@ class InstanceService {
         });
     }
 
+    // NOVA FUNÇÃO: Deletar tudo
+    async deleteInstance(id) {
+        return new Promise((resolve, reject) => {
+            db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
+                if (err || !instance) return reject("Server not found");
+
+                // 1. Parar processo se estiver rodando
+                this.stopInstance(id);
+
+                // 2. Apagar pasta
+                const instanceFolder = path.join(this.instancesDir, instance.name);
+                try {
+                    await fs.remove(instanceFolder);
+                } catch (e) {
+                    console.error("Erro ao apagar pasta:", e);
+                }
+
+                // 3. Apagar Rota do Banco
+                db.run("DELETE FROM routes WHERE destPort = ?", [instance.port], (err) => {
+                    // 4. Apagar Instância do Banco
+                    db.run("DELETE FROM instances WHERE id = ?", [id], () => {
+                        routerService.syncAndRestart();
+                        resolve();
+                    });
+                });
+            });
+        });
+    }
+
     startInstance(id) {
         return new Promise((resolve, reject) => {
             db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
                 if (err || !instance) return reject("Instância não encontrada");
-                
-                if (this.activeProcesses[id]) {
-                    // Se já estiver rodando, só resolve
-                    return resolve(this.activeProcesses[id].pid);
-                }
+                if (this.activeProcesses[id]) return resolve(this.activeProcesses[id].pid);
 
                 const instanceFolder = path.join(this.instancesDir, instance.name);
                 const args = instance.startCommand.split(' ');
                 const command = args.shift();
 
-                // --- GARANTIA DE EULA ---
                 try {
-                    const eulaPath = path.join(instanceFolder, 'eula.txt');
-                    // Força a escrita do EULA true antes de cada boot
-                    await fs.writeFile(eulaPath, 'eula=true');
-                } catch (e) {
-                    console.error(`Erro ao garantir EULA para ${instance.name}:`, e);
-                }
+                    await fs.writeFile(path.join(instanceFolder, 'eula.txt'), 'eula=true');
+                } catch (e) {}
 
-                console.log(`Iniciando servidor ${instance.name} (ID: ${id}) na porta ${instance.port}...`);
+                // Configurar Logs: Escreve no arquivo e mantém no console do Docker
+                const logFile = fs.createWriteStream(path.join(instanceFolder, 'latest.log'), { flags: 'a' });
+
+                console.log(`Iniciando servidor ${instance.name} (ID: ${id})...`);
 
                 const child = spawn(command, args, {
                     cwd: instanceFolder,
-                    stdio: 'inherit'
+                    stdio: ['ignore', 'pipe', 'pipe'] // Pipe para capturar
+                });
+
+                // Redireciona stdout e stderr para o arquivo e para o console
+                child.stdout.on('data', (data) => {
+                    logFile.write(data);
+                    process.stdout.write(`[${instance.name}] ${data}`);
+                });
+
+                child.stderr.on('data', (data) => {
+                    logFile.write(data);
+                    process.stderr.write(`[${instance.name} ERR] ${data}`);
                 });
 
                 this.activeProcesses[id] = child;
                 db.run("UPDATE instances SET status = 'running', pid = ? WHERE id = ?", [child.pid, id]);
 
-                // Escuta o fechamento do processo
                 child.on('close', (code) => {
                     console.log(`Instância ${instance.name} parou com código ${code}`);
+                    logFile.end();
                     delete this.activeProcesses[id];
 
-                    // Código 0 ou null (SIGTERM) geralmente é parada manual
                     if (code === 0 || code === null) {
-                        this.retryCounters[id] = 0; // Reseta contador
+                        this.retryCounters[id] = 0;
                         db.run("UPDATE instances SET status = 'stopped', pid = null WHERE id = ?", [id]);
                     } else {
-                        // Se caiu com erro (ex: crash), tenta reiniciar
                         this.handleCrash(id);
                     }
                 });
@@ -115,23 +143,15 @@ class InstanceService {
         });
     }
 
-    // Lógica de Reinício Automático
     handleCrash(id) {
-        // Inicializa contador se não existir
         if (!this.retryCounters[id]) this.retryCounters[id] = 0;
-
         if (this.retryCounters[id] < 3) {
             this.retryCounters[id]++;
-            console.log(`⚠️ Servidor ID ${id} crashou. Tentativa de reinício ${this.retryCounters[id]}/3 em 5 segundos...`);
-            
-            // Atualiza status para 'restarting'
             db.run("UPDATE instances SET status = 'restarting' WHERE id = ?", [id]);
-
             setTimeout(() => {
                 this.startInstance(id).catch(err => console.error("Falha ao reiniciar:", err));
-            }, 5000); // Espera 5 segundos antes de tentar de novo
+            }, 5000);
         } else {
-            console.error(`❌ Servidor ID ${id} falhou 3 vezes consecutivas. Desistindo.`);
             this.retryCounters[id] = 0;
             db.run("UPDATE instances SET status = 'crashed', pid = null WHERE id = ?", [id]);
         }
@@ -140,11 +160,31 @@ class InstanceService {
     stopInstance(id) {
         const child = this.activeProcesses[id];
         if (child) {
-            // Zera o contador para não tentar reiniciar quando paramos manualmente
-            this.retryCounters[id] = 0; 
-            child.kill('SIGTERM'); 
-            // Em alguns casos Minecraft precisa de SIGINT, mas SIGTERM costuma funcionar para salvar
+            this.retryCounters[id] = 0;
+            child.kill('SIGTERM');
         }
+    }
+
+    // Ler Logs (últimas 100 linhas)
+    async getLogs(id) {
+        return new Promise((resolve, reject) => {
+            db.get("SELECT name FROM instances WHERE id = ?", [id], async (err, row) => {
+                if (err || !row) return resolve("");
+                const logPath = path.join(this.instancesDir, row.name, 'latest.log');
+                try {
+                    if (await fs.pathExists(logPath)) {
+                        const data = await fs.readFile(logPath, 'utf8');
+                        // Pega as últimas 2000 chars para não travar a tela
+                        const lines = data.slice(-50000); 
+                        resolve(lines);
+                    } else {
+                        resolve("Log file not found yet.");
+                    }
+                } catch (e) {
+                    resolve("Error reading logs.");
+                }
+            });
+        });
     }
 }
 

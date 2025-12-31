@@ -1,0 +1,105 @@
+<%- include('partials/header') %>
+
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <div class="page-pretitle">Server Management</div>
+        <h2 class="page-title"><%= instance.name %></h2>
+      </div>
+      <div class="col-auto ms-auto d-print-none">
+        <div class="btn-list">
+            <% if (instance.status == 'running') { %>
+                <form action="/server/<%= instance.id %>/stop" method="POST" style="display:inline;">
+                    <button class="btn btn-danger">Stop Server</button>
+                </form>
+            <% } else { %>
+                <form action="/server/<%= instance.id %>/start" method="POST" style="display:inline;">
+                    <button class="btn btn-success">Start Server</button>
+                </form>
+            <% } %>
+            
+            <form action="/server/<%= instance.id %>/delete" method="POST" onsubmit="return confirm('Delete this server and its files? This cannot be undone.');" style="display:inline;">
+                <button class="btn btn-ghost-danger">Delete</button>
+            </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-body">
+  <div class="container-xl">
+    
+    <div class="row row-cards">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Information</h3>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-5">Domain:</dt>
+                        <dd class="col-7"><%= instance.domain %></dd>
+                        
+                        <dt class="col-5">Public Address:</dt>
+                        <dd class="col-7"><%= instance.domain %>:<%= routerPort %></dd>
+
+                        <dt class="col-5">Internal Port:</dt>
+                        <dd class="col-7"><%= instance.port %></dd>
+
+                        <dt class="col-5">JAR File:</dt>
+                        <dd class="col-7"><%= instance.jarFile %></dd>
+
+                        <dt class="col-5">Status:</dt>
+                        <dd class="col-7">
+                            <% if (instance.status == 'running') { %>
+                                <span class="badge bg-success">Running</span>
+                            <% } else { %>
+                                <span class="badge bg-secondary">Stopped</span>
+                            <% } %>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Console / Logs</h3>
+                    <div class="card-actions">
+                        <button onclick="fetchLogs()" class="btn btn-sm btn-secondary">Refresh</button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <pre id="console-output" class="bg-dark text-light p-3" style="height: 400px; overflow-y: scroll; border-radius: 0 0 4px 4px; font-family: monospace; font-size: 12px;">Loading logs...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+    // Script simples para buscar logs via API
+    function fetchLogs() {
+        const consoleEl = document.getElementById('console-output');
+        fetch('/server/<%= instance.id %>/logs')
+            .then(res => res.text())
+            .then(data => {
+                consoleEl.innerText = data || "No logs available yet.";
+                consoleEl.scrollTop = consoleEl.scrollHeight; // Auto scroll
+            })
+            .catch(err => consoleEl.innerText = "Error fetching logs.");
+    }
+
+    // Atualiza logs a cada 3 segundos se estiver rodando
+    fetchLogs();
+    <% if (instance.status == 'running') { %>
+        setInterval(fetchLogs, 3000);
+    <% } %>
+</script>
+
+<%- include('partials/footer') %>
