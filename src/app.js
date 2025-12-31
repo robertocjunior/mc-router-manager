@@ -19,22 +19,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // --- CORREÇÃO DE SEGURANÇA (CSP) ---
+// Isso permite que o File Manager e os botões funcionem corretamente
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        // Permite scripts inline (onclick) e conexões da mesma origem (AJAX)
-        "script-src": ["'self'", "'unsafe-inline'"],
-        "script-src-attr": ["'self'", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "blob:"],
-        "connect-src": ["'self'"],
-        // IMPORTANTE: Remove a regra que força HTTPS (corrige o loop de redirecionamento)
-        "upgrade-insecure-requests": null, 
+        "script-src": ["'self'", "'unsafe-inline'"], // Permite scripts <script>
+        "script-src-attr": ["'self'", "'unsafe-inline'"], // Permite onclick="..."
+        "img-src": ["'self'", "data:", "blob:"], // Permite ícones
+        "connect-src": ["'self'"], // Permite o fetch (AJAX) do file manager
       },
     },
-    // Desabilita HSTS para evitar forçar HTTPS em rede local
-    hsts: false, 
   })
 );
 
@@ -47,14 +43,12 @@ app.use(session({
         dir: './data',
         db: 'sessions.sqlite'
     }),
-    secret: 'mc-router-secret-key-change-me',
+    secret: 'mc-router-secret-key-change-me', // Em produção, mude isso
     resave: false,
     saveUninitialized: false,
     cookie: { 
         maxAge: 1000 * 60 * 60 * 24 * 7, // 1 semana
-        httpOnly: true,
-        // Garante que secure seja false em localhost/http para não bloquear cookies
-        secure: false 
+        httpOnly: true 
     }
 }));
 
