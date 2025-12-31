@@ -98,7 +98,7 @@
                                     <label class="form-label">server.properties</label>
                                     <textarea class="form-control" name="content" rows="20" style="font-family: monospace;"><%= properties %></textarea>
                                     <small class="form-hint text-warning">
-                                        Note: The <code>server-port</code> cannot be changed manually. It will be reset upon saving.
+                                        Note: <code>server-port</code> is managed automatically.
                                     </small>
                                 </div>
                                 <div class="d-flex justify-content-end">
@@ -108,30 +108,64 @@
                         </div>
 
                         <div class="tab-pane" id="tabs-world">
-                            <div class="row">
-                                <div class="col-md-6 border-end">
+                            
+                            <div class="row mb-4">
+                                <div class="col-12">
                                     <h3>Download World</h3>
-                                    <p class="text-muted">Creates a .zip archive of the current world folder (<code>world</code>) and downloads it.</p>
-                                    <a href="/server/<%= instance.id %>/world/download" class="btn btn-outline-primary w-100">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 11l5 5l5 -5" /><path d="M12 4l0 12" /></svg>
+                                    <p class="text-muted">Download current <code>world</code> folder as a .zip file.</p>
+                                    <a href="/server/<%= instance.id %>/world/download" class="btn btn-outline-primary">
                                         Dump World (.zip)
                                     </a>
                                 </div>
-                                <div class="col-md-6">
-                                    <h3>Upload World</h3>
-                                    <p class="text-danger">Warning: This will DELETE the current world folder and replace it with the zip contents.</p>
+                            </div>
+                            
+                            <hr>
+
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h3 class="text-warning">Upload / Restore World</h3>
+                                    <p class="text-muted">Overwrite current world with a .zip backup.</p>
                                     
                                     <form action="/server/<%= instance.id %>/world/upload" method="POST" enctype="multipart/form-data">
-                                        <div class="mb-3">
-                                            <input type="file" name="worldZip" class="form-control" accept=".zip" required>
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <input type="file" name="worldZip" class="form-control" accept=".zip" required>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <input type="text" class="form-control" id="confirm-upload-input" placeholder="Type 'UPLOAD' to confirm" onkeyup="checkUploadConfirm()">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button type="submit" id="btn-upload" class="btn btn-warning w-100" disabled>
+                                                    Upload & Restore
+                                                </button>
+                                            </div>
                                         </div>
-                                        <button type="submit" class="btn btn-danger w-100" onclick="return confirm('Are you sure? This will overwrite the current world.');">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 9l5 -5l5 5" /><path d="M12 4l0 12" /></svg>
-                                            Upload & Restore
-                                        </button>
                                     </form>
                                 </div>
                             </div>
+
+                            <hr>
+
+                            <div class="row">
+                                <div class="col-12">
+                                    <h3 class="text-danger">Recreate World (Reset)</h3>
+                                    <p class="text-muted">Delete the current world folder. A new world will be generated on restart using the settings from <code>server.properties</code> (Seed, Level Type, etc).</p>
+                                    
+                                    <form action="/server/<%= instance.id %>/world/reset" method="POST">
+                                        <div class="row g-2">
+                                            <div class="col-md-9">
+                                                <input type="text" class="form-control" id="confirm-reset-input" placeholder="Type 'RESET' to confirm deletion" onkeyup="checkResetConfirm()">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button type="submit" id="btn-reset" class="btn btn-danger w-100" disabled>
+                                                    Delete & Regenerate
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+
                         </div>
 
                     </div>
@@ -144,11 +178,31 @@
 </div>
 
 <script>
-    // Recupera parâmetros da URL para mostrar alertas via JS se necessário, mas o EJS já trata.
     const urlParams = new URLSearchParams(window.location.search);
     if(urlParams.get('success')) {
-        // Limpa URL
         window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Lógica de Confirmação do Upload
+    function checkUploadConfirm() {
+        const input = document.getElementById('confirm-upload-input');
+        const btn = document.getElementById('btn-upload');
+        if (input.value === 'UPLOAD') {
+            btn.disabled = false;
+        } else {
+            btn.disabled = true;
+        }
+    }
+
+    // Lógica de Confirmação do Reset
+    function checkResetConfirm() {
+        const input = document.getElementById('confirm-reset-input');
+        const btn = document.getElementById('btn-reset');
+        if (input.value === 'RESET') {
+            btn.disabled = false;
+        } else {
+            btn.disabled = true;
+        }
     }
 
     function fetchLogs() {

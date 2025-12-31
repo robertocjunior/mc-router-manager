@@ -19,7 +19,7 @@ class InstanceService {
                 if (err) return reject(err);
                 
                 let port = (row && row.maxPort) ? row.maxPort + 1 : 25566;
-                if (port === this.routerPort) port++; // Pula a porta do router
+                if (port === this.routerPort) port++;
 
                 const instanceFolder = path.join(this.instancesDir, name);
                 const jarName = file.filename;
@@ -63,7 +63,7 @@ class InstanceService {
             db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
                 if (err || !instance) return reject("Server not found");
 
-                this.stopInstance(id); // Para o processo
+                this.stopInstance(id);
 
                 const instanceFolder = path.join(this.instancesDir, instance.name);
                 try {
@@ -87,7 +87,6 @@ class InstanceService {
             db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
                 if (err || !instance) return reject("Instância não encontrada");
                 
-                // Se já existe um processo ativo, retorna o PID dele
                 if (this.activeProcesses[id]) {
                     return resolve(this.activeProcesses[id].pid);
                 }
@@ -128,7 +127,6 @@ class InstanceService {
                     delete this.activeProcesses[id];
 
                     if (code === 0 || code === null || code === 143 || code === 130) {
-                        // 0=Normal, null=Signal, 143=SIGTERM, 130=SIGINT
                         this.retryCounters[id] = 0;
                         db.run("UPDATE instances SET status = 'stopped', pid = null WHERE id = ?", [id]);
                     } else {
@@ -160,16 +158,15 @@ class InstanceService {
         }
     }
 
-    // Para o servidor (síncrono/imediato)
     stopInstance(id) {
         const child = this.activeProcesses[id];
         if (child) {
-            this.retryCounters[id] = 0; // Impede retry automático
+            this.retryCounters[id] = 0;
             child.kill('SIGTERM');
         }
     }
 
-    // NOVA FUNÇÃO: Para o servidor e ESPERA ele morrer (Promise)
+    // Para o servidor e ESPERA ele morrer (Promise)
     async stopAndWait(id) {
         return new Promise((resolve) => {
             const child = this.activeProcesses[id];
@@ -178,8 +175,7 @@ class InstanceService {
             console.log(`Parando servidor ID ${id} e aguardando encerramento...`);
             this.retryCounters[id] = 0;
             
-            // Escuta o evento de fechamento deste processo específico
-            child.removeAllListeners('close'); // Remove listener padrão para não acionar crash handler
+            child.removeAllListeners('close'); 
             child.on('close', () => {
                 delete this.activeProcesses[id];
                 db.run("UPDATE instances SET status = 'stopped', pid = null WHERE id = ?", [id], () => {
@@ -189,7 +185,7 @@ class InstanceService {
 
             child.kill('SIGTERM');
 
-            // Timeout de segurança: se não fechar em 10s, resolve mesmo assim
+            // Timeout de segurança: 10s
             setTimeout(() => {
                 if (this.activeProcesses[id]) {
                     console.log("Forçando morte do processo...");
@@ -243,7 +239,6 @@ class InstanceService {
                 const propPath = path.join(this.instancesDir, row.name, 'server.properties');
                 
                 let safeContent = content;
-                // Garante que a porta não seja alterada
                 const portRegex = /^server-port=.*/m;
                 if (portRegex.test(safeContent)) {
                     safeContent = safeContent.replace(portRegex, `server-port=${row.port}`);
@@ -260,12 +255,9 @@ class InstanceService {
     }
 
     async restartInstance(id) {
-        // Usa o novo método seguro
         await this.stopAndWait(id);
         await this.startInstance(id);
     }
-
-    // --- MÉTODOS DE MUNDO ---
 
     async _getWorldFolderName(instanceName) {
         const propPath = path.join(this.instancesDir, instanceName, 'server.properties');
@@ -301,28 +293,54 @@ class InstanceService {
         });
     }
 
-    // ATUALIZADO: Agora usa stopAndWait para garantir o restart
     async restoreWorld(id, zipFile) {
         return new Promise((resolve, reject) => {
             db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
                 if (err || !instance) return reject("Instance not found");
 
-                // 1. Para o servidor e ESPERA ele fechar completamente
+                // 1. Para o servidor de forma segura
                 await this.stopAndWait(id);
 
                 const worldName = await this._getWorldFolderName(instance.name);
                 const worldPath = path.join(this.instancesDir, instance.name, worldName);
 
                 try {
-                    // 2. Limpa e extrai
                     await fs.emptyDir(worldPath);
                     const zip = new AdmZip(zipFile.path);
                     zip.extractAllTo(worldPath, true);
-
-                    // 3. Inicia novamente
+                    
+                    // 2. Inicia de novo
                     await this.startInstance(id);
                     resolve();
 
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+    }
+
+    // --- RESET WORLD ---
+    async resetWorld(id) {
+        return new Promise((resolve, reject) => {
+            db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
+                if (err || !instance) return reject("Instance not found");
+
+                // 1. Para o servidor
+                await this.stopAndWait(id);
+
+                const worldName = await this._getWorldFolderName(instance.name);
+                const worldPath = path.join(this.instancesDir, instance.name, worldName);
+
+                try {
+                    // 2. Apaga a pasta do mundo
+                    if (await fs.pathExists(worldPath)) {
+                        await fs.remove(worldPath);
+                    }
+                    
+                    // 3. Inicia (Minecraft recria o mundo)
+                    await this.startInstance(id);
+                    resolve();
                 } catch (e) {
                     reject(e);
                 }
