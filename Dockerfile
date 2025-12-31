@@ -2,12 +2,13 @@
 FROM itzg/mc-router:latest as source
 
 # Estágio 2: Construir a imagem final
-FROM node:18-alpine
+# MUDANÇA: Usando Node 20-alpine que suporta repositórios mais novos
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Instalar dependências do sistema: Bash e Java 17 (Necessário para rodar Minecraft)
-RUN apk add --no-cache bash openjdk17-jre
+# MUDANÇA: Instalar OpenJDK 21 (Necessário para Minecraft 1.20.5+)
+RUN apk add --no-cache bash openjdk21-jre
 
 # Copiar binário do mc-router
 COPY --from=source /mc-router /usr/local/bin/mc-router
@@ -23,8 +24,9 @@ COPY . .
 # Criar estrutura de pastas para os servidores
 RUN mkdir -p /app/data/instances
 
-# Portas
+# Portas (Apenas documentação, o docker-compose manda de verdade)
 EXPOSE 3000
 EXPOSE 25565
+EXPOSE 25569
 
 CMD ["node", "src/app.js"]
