@@ -20,6 +20,10 @@
 <div class="page-body">
   <div class="container-xl">
     
+    <% if (typeof query !== 'undefined' && query.error) { %>
+        <div class="alert alert-danger"><%= query.error %></div>
+    <% } %>
+
     <div class="row row-cards">
         <% if (instances && instances.length > 0) { %>
             <% instances.forEach(function(inst) { %>
@@ -91,6 +95,7 @@
             <div class="mb-3">
                 <label class="form-label">Server Name</label>
                 <input type="text" class="form-control" name="name" placeholder="survival01" required>
+                <small class="form-hint">Internal folder name.</small>
             </div>
             <div class="mb-3">
                 <label class="form-label">Domain</label>
@@ -101,6 +106,13 @@
                 <label class="form-label">Server JAR File</label>
                 <input type="file" class="form-control" name="serverJar" accept=".jar" required>
             </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Start Command (Optional)</label>
+                <input type="text" class="form-control" name="startCommand" placeholder="java -Xmx1024M -Xms1024M -jar {jar} nogui">
+                <small class="form-hint">Use <code>{jar}</code> as placeholder for the filename. Default: <code>java -Xmx1024M -Xms1024M -jar {jar} nogui</code></small>
+            </div>
+
         </div>
         <div class="modal-footer">
             <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancel</a>
