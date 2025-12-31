@@ -1,15 +1,12 @@
 const db = require('../database/db');
 
 module.exports = (req, res, next) => {
-    // 1. Libera arquivos estáticos e API de arquivos (para o File Manager não travar)
-    if (req.path.startsWith('/css') || 
-        req.path.startsWith('/js') || 
-        req.path.startsWith('/images') ||
-        req.path.startsWith('/favicon')) {
+    // 1. Ignora verificação para assets estáticos e API de arquivos se necessário
+    if (req.path.startsWith('/css') || req.path.startsWith('/js') || req.path.startsWith('/images')) {
         return next();
     }
 
-    // 2. Se o usuário já está logado na sessão
+    // 2. Se o usuário já está logado, deixa passar
     if (req.session && req.session.user) {
         // Se tentar acessar login ou setup estando logado, manda pro dashboard
         if (req.path === '/login' || req.path === '/setup') {
@@ -18,25 +15,36 @@ module.exports = (req, res, next) => {
         return next();
     }
 
-    // 3. Verifica se existem usuários no banco
+    // 3. Verifica o estado do banco de dados (se existe usuário admin)
     db.get("SELECT count(*) as count FROM users", (err, row) => {
-        if (err) return next(err);
+        if (err) {
+            console.error("Erro no DB:", err);
+            return next(err);
+        }
 
         const userExists = row && row.count > 0;
         
-        // As rotas que o "Visitante" pode acessar
-        const isSetupRoute = req.path === '/setup';
-        const isLoginRoute = req.path === '/login';
+        // --- CORREÇÃO DO LOOP AQUI ---
+        const isSetupRoute = req.path === '/setup' || req.path === '/auth/setup';
+        const isLoginRoute = req.path === '/login' || req.path === '/auth/login';
 
-        // CENÁRIO 1: Nenhum usuário cadastrado (Modo Setup)
+        // CASO 1: Nenhum usuário cadastrado (Primeiro acesso)
         if (!userExists) {
-            if (isSetupRoute) return next(); // Deixa acessar /setup (GET e POST)
+            // Se já estamos na rota de setup, PERMITE passar
+            if (isSetupRoute) {
+                return next();
+            }
+            // Caso contrário, redireciona para setup
             return res.redirect('/setup');
         }
 
-        // CENÁRIO 2: Existem usuários, mas não está logado (Modo Login)
+        // CASO 2: Usuários existem, mas não está logado
         if (userExists) {
-            if (isLoginRoute) return next(); // Deixa acessar /login (GET e POST)
+            // Se já estamos na rota de login, PERMITE passar
+            if (isLoginRoute) {
+                return next();
+            }
+            // Caso contrário, redireciona para login
             return res.redirect('/login');
         }
     });
