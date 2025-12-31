@@ -1,76 +1,67 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs'); // Você precisará: npm install bcryptjs (se não tiver)
 
-// Rota de Login
+// Página de Login
 router.get('/login', (req, res) => {
-    // Antes de mostrar login, verifica se precisa de setup
-    db.get("SELECT count(*) as count FROM users", (err, row) => {
-        if (!err && row.count === 0) return res.redirect('/setup');
-        res.render('login', { error: null });
-    });
+    res.render('login', { error: req.query.error });
 });
 
-router.post('/login', (req, res) => {
+// Processar Login
+router.post('/auth/login', (req, res) => {
     const { email, password } = req.body;
     
-    // Busca por EMAIL
     db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
-        if (err || !user || !bcrypt.compareSync(password, user.password)) {
-            // TRADUZIDO
-            return res.render('login', { error: 'Invalid email or password' });
+        if (err || !user) {
+            return res.redirect('/login?error=Invalid credentials');
         }
+
+        // Verifica senha (simples ou hash)
+        // Recomendado usar bcrypt.compareSync se estiver salvando hash
+        // Para simplificar o teste inicial sem hash:
+        /* if (user.password !== password) ... */
         
-        // Salva na sessão
-        req.session.userId = user.id;
-        req.session.user = {
-            name: user.name,
-            email: user.email
-        };
+        // Com Hash (Recomendado):
+        if (!bcrypt.compareSync(password, user.password)) {
+             return res.redirect('/login?error=Invalid credentials');
+        }
+
+        req.session.user = user;
         res.redirect('/');
     });
 });
 
-// Rota de Setup (Primeiro Uso)
+// Página de Setup (Primeiro Acesso)
 router.get('/setup', (req, res) => {
-    // Segurança: Se já tem user, não deixa acessar setup
-    db.get("SELECT count(*) as count FROM users", (err, row) => {
-        if (row && row.count > 0) return res.redirect('/login');
-        res.render('setup', { error: null });
-    });
+    res.render('setup', { error: req.query.error });
 });
 
-router.post('/setup', (req, res) => {
-    db.get("SELECT count(*) as count FROM users", (err, row) => {
-        if (row && row.count > 0) return res.redirect('/login');
+// Processar Setup
+router.post('/auth/setup', (req, res) => {
+    const { name, email, password } = req.body;
 
-        const { name, email, password } = req.body;
-        
-        if (!name || !email || !password) {
-            // TRADUZIDO
-            return res.render('setup', { error: 'All fields are required' });
-        }
+    if (!name || !email || !password) {
+        return res.redirect('/setup?error=Missing fields');
+    }
 
-        const hash = bcrypt.hashSync(password, 10);
+    // Criptografa senha
+    const hash = bcrypt.hashSync(password, 10);
 
-        db.run("INSERT INTO users (name, email, password) VALUES (?, ?, ?)", 
-            [name, email, hash], 
-            function(err) {
-                if (err) {
-                    console.error(err);
-                    // TRADUZIDO
-                    return res.render('setup', { error: 'Error creating user. Please try again.' });
-                }
-                // Loga o usuário automaticamente após criar
-                req.session.userId = this.lastID;
-                req.session.user = { name, email };
-                res.redirect('/');
+    db.run("INSERT INTO users (name, email, password) VALUES (?, ?, ?)", 
+        [name, email, hash], 
+        function(err) {
+            if (err) {
+                return res.redirect('/setup?error=' + encodeURIComponent(err.message));
             }
-        );
-    });
+            // Loga automaticamente após criar
+            req.session.user = { id: this.lastID, name, email };
+            res.redirect('/');
+        }
+    );
 });
 
+// Logout
 router.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
