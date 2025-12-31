@@ -201,6 +201,26 @@
   </div>
 </div>
 
+<div class="modal modal-blur fade" id="modal-file-rename" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Rename / Move</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="rename-old-path">
+          <label class="form-label">New Name / Path</label>
+          <input type="text" id="rename-new-path" class="form-control">
+          <small class="form-hint">Change the folder path to move the file.</small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary w-100" onclick="performRename()">Confirm</button>
+        </div>
+      </div>
+    </div>
+</div>
+
 <div class="modal modal-blur fade" id="modal-upload" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
       <div class="modal-content">
@@ -249,6 +269,7 @@
 
         try {
             const res = await fetch(`/server/${serverId}/files/list?path=${encodeURIComponent(path)}`);
+            if(!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             if(!data.success) throw new Error(data.error);
 
@@ -264,11 +285,22 @@
                 const icon = f.isDirectory ? '📁' : '📄';
                 const nameHtml = f.isDirectory ? `<a href="#" onclick="loadFiles('${fullPath}'); return false;" class="font-weight-bold">${f.name}</a>` : f.name;
                 
-                let actions = `<div class="btn-list flex-nowrap"><button class="btn btn-sm btn-ghost-danger" onclick="deleteFile('${fullPath}')">Del</button>`;
-                if(!f.isDirectory) {
-                    if(f.name.match(/\.(txt|json|yml|properties|log)$/i)) actions += `<button class="btn btn-sm btn-ghost-primary" onclick="editFile('${fullPath}', '${f.name}')">Edit</button>`;
-                    actions += `<a href="/server/${serverId}/files/download?path=${encodeURIComponent(fullPath)}" class="btn btn-sm btn-ghost-secondary" target="_blank">Down</a>`;
+                let actions = `<div class="btn-list flex-nowrap">`;
+                
+                // Botão Rename/Move
+                actions += `<button class="btn btn-sm btn-ghost-warning" onclick="openRenameModal('${fullPath}')" title="Rename / Move">Move</button>`;
+
+                // Botão Delete
+                actions += `<button class="btn btn-sm btn-ghost-danger" onclick="deleteFile('${fullPath}')" title="Delete">Del</button>`;
+                
+                // Botões específicos de arquivo (Edit / Download)
+                // Se for pasta, também pode baixar (vira zip)
+                actions += `<a href="/server/${serverId}/files/download?path=${encodeURIComponent(fullPath)}" class="btn btn-sm btn-ghost-secondary" target="_blank" title="Download">Down</a>`;
+
+                if(!f.isDirectory && f.name.match(/\.(txt|json|yml|yaml|properties|log|md)$/i)) {
+                    actions += `<button class="btn btn-sm btn-ghost-primary" onclick="editFile('${fullPath}', '${f.name}')">Edit</button>`;
                 }
+
                 actions += `</div>`;
 
                 tbody.innerHTML += `<tr><td>${icon} ${nameHtml}</td><td>${f.isDirectory ? '-' : (f.size/1024).toFixed(1)+' KB'}</td><td>${new Date(f.mtime).toLocaleString()}</td><td>${actions}</td></tr>`;
@@ -287,6 +319,28 @@
         if(!name) return;
         const newPath = currentPath ? currentPath + '/' + name : name;
         await fetch(`/server/${serverId}/files/mkdir`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path: newPath}) });
+        loadFiles(currentPath);
+    }
+
+    // RENAME / MOVE LOGIC
+    function openRenameModal(path) {
+        document.getElementById('rename-old-path').value = path;
+        document.getElementById('rename-new-path').value = path; // Inicia com o nome atual
+        new bootstrap.Modal(document.getElementById('modal-file-rename')).show();
+    }
+
+    async function performRename() {
+        const oldPath = document.getElementById('rename-old-path').value;
+        const newPath = document.getElementById('rename-new-path').value;
+        if(!newPath || newPath === oldPath) return;
+
+        await fetch(`/server/${serverId}/files/rename`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ oldPath, newPath })
+        });
+
+        bootstrap.Modal.getInstance(document.getElementById('modal-file-rename')).hide();
         loadFiles(currentPath);
     }
 
