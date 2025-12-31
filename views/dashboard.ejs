@@ -28,7 +28,7 @@
         <% if (instances && instances.length > 0) { %>
             <% instances.forEach(function(inst) { %>
             <div class="col-sm-6 col-lg-4">
-                <a href="/server/<%= inst.id %>" class="card card-link card-link-pop">
+                <a href="/server/<%= inst.uuid %>" class="card card-link card-link-pop">
                     <% if (inst.status == 'running') { %>
                         <div class="card-status-top bg-success"></div>
                     <% } else if (inst.status == 'crashed') { %>
