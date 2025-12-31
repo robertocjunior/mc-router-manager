@@ -11,9 +11,6 @@ class InstanceService {
         this.activeProcesses = {};
         this.routerPort = parseInt(process.env.MC_ROUTER_PORT || 25565);
         this.retryCounters = {};
-        
-        // Garante pasta temporária para downloads de zip
-        fs.ensureDirSync(path.join(process.cwd(), 'temp_uploads'));
     }
 
     async createInstance(name, domain, file, customCommand) {
@@ -22,6 +19,7 @@ class InstanceService {
                 if (err) return reject(err);
                 
                 let port = (row && row.maxPort) ? row.maxPort + 1 : 25566;
+                // Evita conflito com a porta do roteador
                 if (port === this.routerPort) port++;
 
                 const instanceFolder = path.join(this.instancesDir, name);
@@ -169,14 +167,16 @@ class InstanceService {
         }
     }
 
+    // Para o servidor e ESPERA ele morrer (Promise Segura)
     async stopAndWait(id) {
         return new Promise((resolve) => {
             const child = this.activeProcesses[id];
-            if (!child) return resolve(); 
+            if (!child) return resolve(); // Já está parado
 
             console.log(`Parando servidor ID ${id} e aguardando encerramento...`);
             this.retryCounters[id] = 0;
             
+            // Remove listener padrão para não acionar crash handler
             child.removeAllListeners('close'); 
             child.on('close', () => {
                 delete this.activeProcesses[id];
@@ -187,6 +187,7 @@ class InstanceService {
 
             child.kill('SIGTERM');
 
+            // Timeout de segurança: 10s para forçar kill
             setTimeout(() => {
                 if (this.activeProcesses[id]) {
                     console.log("Forçando morte do processo...");
@@ -240,6 +241,7 @@ class InstanceService {
                 const propPath = path.join(this.instancesDir, row.name, 'server.properties');
                 
                 let safeContent = content;
+                // Garante que a porta interna não seja alterada manualmente
                 const portRegex = /^server-port=.*/m;
                 if (portRegex.test(safeContent)) {
                     safeContent = safeContent.replace(portRegex, `server-port=${row.port}`);
@@ -259,6 +261,8 @@ class InstanceService {
         await this.stopAndWait(id);
         await this.startInstance(id);
     }
+
+    // --- MÉTODOS DE MUNDO (World Manager) ---
 
     async _getWorldFolderName(instanceName) {
         const propPath = path.join(this.instancesDir, instanceName, 'server.properties');
@@ -299,6 +303,7 @@ class InstanceService {
             db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
                 if (err || !instance) return reject("Instance not found");
 
+                // Para o servidor antes de mexer
                 await this.stopAndWait(id);
 
                 const worldName = await this._getWorldFolderName(instance.name);
@@ -308,8 +313,10 @@ class InstanceService {
                     await fs.emptyDir(worldPath);
                     const zip = new AdmZip(zipFile.path);
                     zip.extractAllTo(worldPath, true);
+                    
                     await this.startInstance(id);
                     resolve();
+
                 } catch (e) {
                     reject(e);
                 }
@@ -341,9 +348,10 @@ class InstanceService {
     }
 
     // ---------------------------------------------------------
-    // FILE MANAGER
+    // FILE MANAGER (Gerenciador de Arquivos)
     // ---------------------------------------------------------
 
+    // Valida e Resolve Caminho Seguro para evitar Path Traversal
     async _resolveSafePath(instanceId, subpath) {
         return new Promise((resolve, reject) => {
             db.get("SELECT name FROM instances WHERE id = ?", [instanceId], (err, row) => {
@@ -352,6 +360,7 @@ class InstanceService {
                 const rootPath = path.resolve(this.instancesDir, row.name);
                 const requestedPath = path.resolve(rootPath, subpath || '.');
 
+                // Segurança: Impede acesso fora da pasta do servidor
                 if (!requestedPath.startsWith(rootPath)) {
                     return reject("Access Denied: Path traversal detected");
                 }
@@ -372,22 +381,18 @@ class InstanceService {
 
             const files = await fs.readdir(fullPath, { withFileTypes: true });
             
-            // Tratamento de erro robusto dentro do map para não quebrar tudo se 1 arquivo falhar
-            const result = (await Promise.all(files.map(async (file) => {
-                try {
-                    const filePath = path.join(fullPath, file.name);
-                    const fileStat = await fs.stat(filePath);
-                    return {
-                        name: file.name,
-                        isDirectory: file.isDirectory(),
-                        size: fileStat.size,
-                        mtime: fileStat.mtime
-                    };
-                } catch (err) {
-                    return null; // Ignora arquivos com erro de permissão/leitura
-                }
-            }))).filter(x => x !== null);
+            const result = await Promise.all(files.map(async (file) => {
+                const filePath = path.join(fullPath, file.name);
+                const fileStat = await fs.stat(filePath);
+                return {
+                    name: file.name,
+                    isDirectory: file.isDirectory(),
+                    size: fileStat.size,
+                    mtime: fileStat.mtime
+                };
+            }));
             
+            // Ordena: Pastas primeiro
             return result.sort((a, b) => {
                 if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
                 return a.isDirectory ? -1 : 1;
@@ -435,60 +440,29 @@ class InstanceService {
         }
     }
 
-    // NOVO: Renomear ou Mover arquivo
-    async renameFile(id, oldPath, newPath) {
-        try {
-            // Resolve ambos os caminhos com verificação de segurança
-            const { fullPath: oldFull } = await this._resolveSafePath(id, oldPath);
-            const { fullPath: newFull } = await this._resolveSafePath(id, newPath);
-            
-            // Garante que a pasta de destino exista
-            await fs.ensureDir(path.dirname(newFull));
-            
-            await fs.move(oldFull, newFull, { overwrite: true });
-        } catch (e) {
-            throw new Error("Error moving/renaming: " + e.message);
-        }
-    }
-
     async uploadFileToFolder(id, subpath, file) {
         try {
             const { fullPath } = await this._resolveSafePath(id, subpath);
+            // Se fullPath for arquivo, usa diretório pai
             let targetDir = fullPath;
             if (await fs.pathExists(fullPath) && (await fs.stat(fullPath)).isFile()) {
                 targetDir = path.dirname(fullPath);
             }
+            
             if (!await fs.pathExists(targetDir)) await fs.ensureDir(targetDir);
+
             await fs.move(file.path, path.join(targetDir, file.originalname), { overwrite: true });
         } catch (e) {
             throw new Error("Error uploading file");
         }
     }
     
-    // ATUALIZADO: Suporte a Download de Pasta (via ZIP)
     async getDownloadPath(id, subpath) {
-        const { fullPath, instanceName } = await this._resolveSafePath(id, subpath);
-        
-        if (!await fs.pathExists(fullPath)) throw new Error("Path not found");
-        
-        const stats = await fs.stat(fullPath);
-        
-        if (stats.isFile()) {
-            // Arquivo normal
-            return { path: fullPath, name: path.basename(fullPath), isTemp: false };
-        } else if (stats.isDirectory()) {
-            // Pasta -> Cria ZIP temporário
-            const zip = new AdmZip();
-            zip.addLocalFolder(fullPath);
-            
-            const zipName = `${path.basename(fullPath)}.zip`;
-            const tempPath = path.join(process.cwd(), 'temp_uploads', `${instanceName}_${Date.now()}_${zipName}`);
-            
-            zip.writeZip(tempPath);
-            return { path: tempPath, name: zipName, isTemp: true };
+        const { fullPath } = await this._resolveSafePath(id, subpath);
+        if (await fs.pathExists(fullPath) && (await fs.stat(fullPath)).isFile()) {
+            return fullPath;
         }
-        
-        throw new Error("Invalid path type");
+        throw new Error("File not found");
     }
 }
 
