@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/robertocjunior/mc-router-manager#readme",
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.1",
     "connect-sqlite3": "^0.9.16",

@@ -3,6 +3,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const db = require('../database/db');
 const routerService = require('./routerService');
+const AdmZip = require('adm-zip'); // NOVA DEPENDÊNCIA
 
 class InstanceService {
     constructor() {
@@ -12,8 +13,15 @@ class InstanceService {
         this.retryCounters = {};
     }
 
-    // ... (métodos createInstance e deleteInstance permanecem iguais) ...
+    // ... (createInstance, deleteInstance, startInstance, etc. mantêm-se iguais) ...
+    // Vou colocar apenas as partes que mudaram ou são novas para não ficar gigante, 
+    // mas certifique-se de manter os métodos create, start, stop, delete, getLogs, getProperties, saveProperties.
+
+    // ---------------------------------------------------------
+    // MÉTODOS EXISTENTES (Resumidos para referência - MANTENHA ELES)
+    // ---------------------------------------------------------
     async createInstance(name, domain, file, customCommand) {
+        // ... (seu código anterior aqui)
         return new Promise((resolve, reject) => {
             db.get("SELECT MAX(port) as maxPort FROM instances", async (err, row) => {
                 if (err) return reject(err);
@@ -53,6 +61,7 @@ class InstanceService {
     }
 
     async deleteInstance(id) {
+        // ... (seu código anterior aqui)
         return new Promise((resolve, reject) => {
             db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
                 if (err || !instance) return reject("Server not found");
@@ -69,8 +78,8 @@ class InstanceService {
         });
     }
 
-    // ... (startInstance, handleCrash, stopInstance, getLogs permanecem iguais) ...
     startInstance(id) {
+        // ... (seu código anterior aqui)
         return new Promise((resolve, reject) => {
             db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
                 if (err || !instance) return reject("Instância não encontrada");
@@ -93,7 +102,6 @@ class InstanceService {
                 db.run("UPDATE instances SET status = 'running', pid = ? WHERE id = ?", [child.pid, id]);
 
                 child.on('close', (code) => {
-                    console.log(`Instância ${instance.name} parou com código ${code}`);
                     logFile.end();
                     delete this.activeProcesses[id];
                     if (code === 0 || code === null) {
@@ -143,8 +151,6 @@ class InstanceService {
         });
     }
 
-    // --- NOVOS MÉTODOS ---
-
     async getProperties(id) {
         return new Promise((resolve, reject) => {
             db.get("SELECT name FROM instances WHERE id = ?", [id], async (err, row) => {
@@ -154,9 +160,7 @@ class InstanceService {
                     if (await fs.pathExists(propPath)) {
                         const data = await fs.readFile(propPath, 'utf8');
                         resolve(data);
-                    } else {
-                        resolve("# File not found yet");
-                    }
+                    } else { resolve("# File not found yet"); }
                 } catch (e) { reject(e); }
             });
         });
@@ -168,7 +172,6 @@ class InstanceService {
                 if (err || !row) return reject("Instance not found");
                 const propPath = path.join(this.instancesDir, row.name, 'server.properties');
                 
-                // PROTEÇÃO DE PORTA: Força a porta interna correta
                 let safeContent = content;
                 const portRegex = /^server-port=.*/m;
                 if (portRegex.test(safeContent)) {
@@ -187,12 +190,92 @@ class InstanceService {
 
     async restartInstance(id) {
         this.stopInstance(id);
-        // Espera 2 segundos para o processo morrer e inicia de novo
         return new Promise(resolve => {
             setTimeout(async () => {
                 await this.startInstance(id);
                 resolve();
             }, 2000);
+        });
+    }
+
+    // ---------------------------------------------------------
+    // NOVOS MÉTODOS DE MUNDO (BACKUP/RESTORE)
+    // ---------------------------------------------------------
+
+    // Auxiliar: Descobre o nome da pasta do mundo lendo server.properties
+    async _getWorldFolderName(instanceName) {
+        const propPath = path.join(this.instancesDir, instanceName, 'server.properties');
+        try {
+            if (await fs.pathExists(propPath)) {
+                const content = await fs.readFile(propPath, 'utf8');
+                const match = content.match(/^level-name=(.*)$/m);
+                if (match && match[1]) {
+                    return match[1].trim();
+                }
+            }
+        } catch (e) {}
+        return 'world'; // Padrão do Minecraft
+    }
+
+    // Gerar ZIP do Mundo
+    async downloadWorld(id) {
+        return new Promise((resolve, reject) => {
+            db.get("SELECT name FROM instances WHERE id = ?", [id], async (err, row) => {
+                if (err || !row) return reject("Instance not found");
+                
+                const instanceName = row.name;
+                const worldName = await this._getWorldFolderName(instanceName);
+                const worldPath = path.join(this.instancesDir, instanceName, worldName);
+                
+                if (!await fs.pathExists(worldPath)) {
+                    return reject("World folder not found: " + worldName);
+                }
+
+                // Cria um ZIP na memória/temp
+                try {
+                    const zip = new AdmZip();
+                    // Adiciona o conteúdo da pasta world dentro do zip
+                    zip.addLocalFolder(worldPath); 
+                    
+                    const zipPath = path.join(this.instancesDir, instanceName, `${worldName}_dump.zip`);
+                    zip.writeZip(zipPath); // Salva no disco
+                    resolve(zipPath);
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+    }
+
+    // Restaurar ZIP do Mundo
+    async restoreWorld(id, zipFile) {
+        return new Promise((resolve, reject) => {
+            db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
+                if (err || !instance) return reject("Instance not found");
+
+                // 1. Para o servidor se estiver rodando
+                this.stopInstance(id);
+                await new Promise(r => setTimeout(r, 2000)); // Espera parar
+
+                const worldName = await this._getWorldFolderName(instance.name);
+                const worldPath = path.join(this.instancesDir, instance.name, worldName);
+
+                try {
+                    // 2. Limpa a pasta do mundo atual (Backup seria ideal, mas aqui vamos substituir)
+                    await fs.emptyDir(worldPath);
+
+                    // 3. Extrai o ZIP novo
+                    const zip = new AdmZip(zipFile.path);
+                    zip.extractAllTo(worldPath, true); // true = overwrite
+
+                    // 4. Inicia o servidor novamente
+                    this.startInstance(id);
+                    resolve();
+
+                } catch (e) {
+                    reject(e);
+                }
+            });
         });
     }
 }
