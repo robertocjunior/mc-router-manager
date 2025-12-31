@@ -11,7 +11,8 @@ const ROUTER_PORT = process.env.MC_ROUTER_PORT || 25565;
 
 router.use(authMiddleware);
 
-// Dashboard
+// --- DASHBOARD E BÁSICOS ---
+
 router.get('/', (req, res) => {
     db.all("SELECT * FROM instances", (err, instances) => {
         res.render('dashboard', { 
@@ -23,7 +24,6 @@ router.get('/', (req, res) => {
     });
 });
 
-// Detalhes
 router.get('/server/:id', async (req, res) => {
     const id = req.params.id;
     let properties = "";
@@ -45,13 +45,13 @@ router.get('/server/:id', async (req, res) => {
     });
 });
 
-// Logs API
 router.get('/server/:id/logs', async (req, res) => {
     const logs = await instanceService.getLogs(req.params.id);
     res.send(logs);
 });
 
-// Criar
+// --- AÇÕES DO SERVIDOR ---
+
 router.post('/instances/create', upload.single('serverJar'), async (req, res) => {
     try {
         const { name, domain, startCommand } = req.body;
@@ -66,7 +66,6 @@ router.post('/instances/create', upload.single('serverJar'), async (req, res) =>
     }
 });
 
-// Start
 router.post('/server/:id/start', async (req, res) => {
     try {
         await instanceService.startInstance(req.params.id);
@@ -76,13 +75,11 @@ router.post('/server/:id/start', async (req, res) => {
     }
 });
 
-// Stop
 router.post('/server/:id/stop', async (req, res) => {
     instanceService.stopInstance(req.params.id);
     setTimeout(() => res.redirect('/server/' + req.params.id), 1000);
 });
 
-// Delete Server
 router.post('/server/:id/delete', async (req, res) => {
     try {
         await instanceService.deleteInstance(req.params.id);
@@ -92,7 +89,6 @@ router.post('/server/:id/delete', async (req, res) => {
     }
 });
 
-// Save Properties
 router.post('/server/:id/properties', async (req, res) => {
     try {
         const { content } = req.body;
@@ -104,7 +100,8 @@ router.post('/server/:id/properties', async (req, res) => {
     }
 });
 
-// Download World
+// --- GERENCIAMENTO DE MUNDO ---
+
 router.get('/server/:id/world/download', async (req, res) => {
     try {
         const zipPath = await instanceService.downloadWorld(req.params.id);
@@ -114,7 +111,6 @@ router.get('/server/:id/world/download', async (req, res) => {
     }
 });
 
-// Upload World
 router.post('/server/:id/world/upload', upload.single('worldZip'), async (req, res) => {
     try {
         const file = req.file;
@@ -130,13 +126,79 @@ router.post('/server/:id/world/upload', upload.single('worldZip'), async (req, r
     }
 });
 
-// Reset World (Delete & Regenerate)
 router.post('/server/:id/world/reset', async (req, res) => {
     try {
         await instanceService.resetWorld(req.params.id);
         res.redirect('/server/' + req.params.id + '?success=World deleted. A new one is being generated...');
     } catch (error) {
         res.redirect('/server/' + req.params.id + '?error=' + encodeURIComponent(error.message));
+    }
+});
+
+// --- API DO FILE MANAGER ---
+
+router.get('/server/:id/files/list', async (req, res) => {
+    try {
+        const path = req.query.path || '';
+        const files = await instanceService.listFiles(req.params.id, path);
+        res.json({ success: true, files, path });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.get('/server/:id/files/content', async (req, res) => {
+    try {
+        const content = await instanceService.getFileContent(req.params.id, req.query.path);
+        res.json({ success: true, content });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.post('/server/:id/files/save', async (req, res) => {
+    try {
+        await instanceService.writeFileContent(req.params.id, req.body.path, req.body.content);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.post('/server/:id/files/mkdir', async (req, res) => {
+    try {
+        await instanceService.createDirectory(req.params.id, req.body.path);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.post('/server/:id/files/delete', async (req, res) => {
+    try {
+        await instanceService.deleteFileOrFolder(req.params.id, req.body.path);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.post('/server/:id/files/upload', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) throw new Error("No file");
+        await instanceService.uploadFileToFolder(req.params.id, req.body.path, req.file);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.get('/server/:id/files/download', async (req, res) => {
+    try {
+        const filePath = await instanceService.getDownloadPath(req.params.id, req.query.path);
+        res.download(filePath);
+    } catch (e) {
+        res.status(404).send("File not found");
     }
 });
 

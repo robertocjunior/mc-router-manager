@@ -75,6 +75,9 @@
                             <a href="#tabs-console" class="nav-link active" data-bs-toggle="tab">Console</a>
                         </li>
                         <li class="nav-item">
+                            <a href="#tabs-files" class="nav-link" data-bs-toggle="tab" onclick="loadFiles('')">File Manager</a>
+                        </li>
+                        <li class="nav-item">
                             <a href="#tabs-properties" class="nav-link" data-bs-toggle="tab">Server Properties</a>
                         </li>
                         <li class="nav-item">
@@ -92,14 +95,44 @@
                             <pre id="console-output" class="bg-dark text-light p-3" style="height: 500px; overflow-y: scroll; border-radius: 4px; font-family: monospace; font-size: 12px;">Loading logs...</pre>
                         </div>
 
+                        <div class="tab-pane" id="tabs-files">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div id="file-breadcrumb" class="text-muted">/</div>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-white" onclick="openCreateFolderModal()">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                                        New Folder
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" onclick="openUploadModal()">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 9l5 -5l5 5" /><path d="M12 4l0 12" /></svg>
+                                        Upload File
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive" style="max-height: 500px;">
+                                <table class="table table-vcenter table-mobile-md card-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Size</th>
+                                            <th>Modified</th>
+                                            <th class="w-1"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="file-list-body">
+                                        <tr><td colspan="4" class="text-center">Loading files...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                         <div class="tab-pane" id="tabs-properties">
                             <form action="/server/<%= instance.id %>/properties" method="POST">
                                 <div class="mb-3">
                                     <label class="form-label">server.properties</label>
                                     <textarea class="form-control" name="content" rows="20" style="font-family: monospace;"><%= properties %></textarea>
-                                    <small class="form-hint text-warning">
-                                        Note: <code>server-port</code> is managed automatically.
-                                    </small>
+                                    <small class="form-hint text-warning">Note: <code>server-port</code> is managed automatically.</small>
                                 </div>
                                 <div class="d-flex justify-content-end">
                                     <button type="submit" class="btn btn-primary">Save & Restart Server</button>
@@ -108,64 +141,37 @@
                         </div>
 
                         <div class="tab-pane" id="tabs-world">
-                            
                             <div class="row mb-4">
                                 <div class="col-12">
                                     <h3>Download World</h3>
-                                    <p class="text-muted">Download current <code>world</code> folder as a .zip file.</p>
-                                    <a href="/server/<%= instance.id %>/world/download" class="btn btn-outline-primary">
-                                        Dump World (.zip)
-                                    </a>
+                                    <a href="/server/<%= instance.id %>/world/download" class="btn btn-outline-primary">Dump World (.zip)</a>
                                 </div>
                             </div>
-                            
                             <hr>
-
                             <div class="row mb-4">
                                 <div class="col-12">
                                     <h3 class="text-warning">Upload / Restore World</h3>
-                                    <p class="text-muted">Overwrite current world with a .zip backup.</p>
-                                    
                                     <form action="/server/<%= instance.id %>/world/upload" method="POST" enctype="multipart/form-data">
                                         <div class="row g-2">
-                                            <div class="col-md-6">
-                                                <input type="file" name="worldZip" class="form-control" accept=".zip" required>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <input type="text" class="form-control" id="confirm-upload-input" placeholder="Type 'UPLOAD' to confirm" onkeyup="checkUploadConfirm()">
-                                            </div>
-                                            <div class="col-md-3">
-                                                <button type="submit" id="btn-upload" class="btn btn-warning w-100" disabled>
-                                                    Upload & Restore
-                                                </button>
-                                            </div>
+                                            <div class="col-md-6"><input type="file" name="worldZip" class="form-control" accept=".zip" required></div>
+                                            <div class="col-md-3"><input type="text" class="form-control" id="confirm-upload-input" placeholder="Type 'UPLOAD' to confirm" onkeyup="checkUploadConfirm()"></div>
+                                            <div class="col-md-3"><button type="submit" id="btn-upload" class="btn btn-warning w-100" disabled>Upload & Restore</button></div>
                                         </div>
                                     </form>
                                 </div>
                             </div>
-
                             <hr>
-
                             <div class="row">
                                 <div class="col-12">
                                     <h3 class="text-danger">Recreate World (Reset)</h3>
-                                    <p class="text-muted">Delete the current world folder. A new world will be generated on restart using the settings from <code>server.properties</code> (Seed, Level Type, etc).</p>
-                                    
                                     <form action="/server/<%= instance.id %>/world/reset" method="POST">
                                         <div class="row g-2">
-                                            <div class="col-md-9">
-                                                <input type="text" class="form-control" id="confirm-reset-input" placeholder="Type 'RESET' to confirm deletion" onkeyup="checkResetConfirm()">
-                                            </div>
-                                            <div class="col-md-3">
-                                                <button type="submit" id="btn-reset" class="btn btn-danger w-100" disabled>
-                                                    Delete & Regenerate
-                                                </button>
-                                            </div>
+                                            <div class="col-md-9"><input type="text" class="form-control" id="confirm-reset-input" placeholder="Type 'RESET' to confirm deletion" onkeyup="checkResetConfirm()"></div>
+                                            <div class="col-md-3"><button type="submit" id="btn-reset" class="btn btn-danger w-100" disabled>Delete & Regenerate</button></div>
                                         </div>
                                     </form>
                                 </div>
                             </div>
-
                         </div>
 
                     </div>
@@ -173,57 +179,158 @@
             </div>
         </div>
     </div>
-
   </div>
+</div>
+
+<div class="modal modal-blur fade" id="modal-file-editor" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editor-filename">Edit File</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editor-filepath">
+        <textarea id="editor-content" class="form-control" rows="20" style="font-family: monospace; font-size: 12px;"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn me-auto" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" onclick="saveFile()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="modal-upload" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Upload File</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <input type="file" id="upload-file-input" class="form-control">
+            <input type="hidden" id="upload-current-path">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary w-100" onclick="performUpload()">Upload</button>
+        </div>
+      </div>
+    </div>
 </div>
 
 <script>
     const urlParams = new URLSearchParams(window.location.search);
-    if(urlParams.get('success')) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
+    if(urlParams.get('success')) window.history.replaceState({}, document.title, window.location.pathname);
 
-    // Lógica de Confirmação do Upload
-    function checkUploadConfirm() {
-        const input = document.getElementById('confirm-upload-input');
-        const btn = document.getElementById('btn-upload');
-        if (input.value === 'UPLOAD') {
-            btn.disabled = false;
-        } else {
-            btn.disabled = true;
-        }
-    }
-
-    // Lógica de Confirmação do Reset
-    function checkResetConfirm() {
-        const input = document.getElementById('confirm-reset-input');
-        const btn = document.getElementById('btn-reset');
-        if (input.value === 'RESET') {
-            btn.disabled = false;
-        } else {
-            btn.disabled = true;
-        }
-    }
+    function checkUploadConfirm() { document.getElementById('btn-upload').disabled = document.getElementById('confirm-upload-input').value !== 'UPLOAD'; }
+    function checkResetConfirm() { document.getElementById('btn-reset').disabled = document.getElementById('confirm-reset-input').value !== 'RESET'; }
 
     function fetchLogs() {
         const consoleEl = document.getElementById('console-output');
         if(!consoleEl) return;
+        fetch('/server/<%= instance.id %>/logs').then(r=>r.text()).then(d=>{
+            consoleEl.innerText = d || "No logs available.";
+            if(consoleEl.scrollHeight - consoleEl.scrollTop < 800) consoleEl.scrollTop = consoleEl.scrollHeight;
+        }).catch(e=>consoleEl.innerText="Error.");
+    }
+    fetchLogs();
+    <% if (instance.status == 'running') { %> setInterval(fetchLogs, 3000); <% } %>
 
-        fetch('/server/<%= instance.id %>/logs')
-            .then(res => res.text())
-            .then(data => {
-                consoleEl.innerText = data || "No logs available yet.";
-                if(consoleEl.scrollHeight - consoleEl.scrollTop < 800) {
-                     consoleEl.scrollTop = consoleEl.scrollHeight;
+    // FILE MANAGER LOGIC
+    let currentPath = '';
+    const serverId = '<%= instance.id %>';
+
+    async function loadFiles(path) {
+        currentPath = path;
+        const tbody = document.getElementById('file-list-body');
+        document.getElementById('file-breadcrumb').innerText = path ? '/ ' + path : '/';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+
+        try {
+            const res = await fetch(`/server/${serverId}/files/list?path=${encodeURIComponent(path)}`);
+            const data = await res.json();
+            if(!data.success) throw new Error(data.error);
+
+            tbody.innerHTML = '';
+            if(path !== '') {
+                const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
+                tbody.innerHTML += `<tr><td colspan="4"><a href="#" onclick="loadFiles('${parentPath}'); return false;">..</a></td></tr>`;
+            }
+            if(data.files.length === 0) tbody.innerHTML += '<tr><td colspan="4" class="text-center text-muted">Empty folder</td></tr>';
+
+            data.files.forEach(f => {
+                const fullPath = path ? path + '/' + f.name : f.name;
+                const icon = f.isDirectory ? '📁' : '📄';
+                const nameHtml = f.isDirectory ? `<a href="#" onclick="loadFiles('${fullPath}'); return false;" class="font-weight-bold">${f.name}</a>` : f.name;
+                
+                let actions = `<div class="btn-list flex-nowrap"><button class="btn btn-sm btn-ghost-danger" onclick="deleteFile('${fullPath}')">Del</button>`;
+                if(!f.isDirectory) {
+                    if(f.name.match(/\.(txt|json|yml|properties|log)$/i)) actions += `<button class="btn btn-sm btn-ghost-primary" onclick="editFile('${fullPath}', '${f.name}')">Edit</button>`;
+                    actions += `<a href="/server/${serverId}/files/download?path=${encodeURIComponent(fullPath)}" class="btn btn-sm btn-ghost-secondary" target="_blank">Down</a>`;
                 }
-            })
-            .catch(err => consoleEl.innerText = "Error fetching logs.");
+                actions += `</div>`;
+
+                tbody.innerHTML += `<tr><td>${icon} ${nameHtml}</td><td>${f.isDirectory ? '-' : (f.size/1024).toFixed(1)+' KB'}</td><td>${new Date(f.mtime).toLocaleString()}</td><td>${actions}</td></tr>`;
+            });
+        } catch (e) { tbody.innerHTML = `<tr><td colspan="4" class="text-danger">Error: ${e.message}</td></tr>`; }
     }
 
-    fetchLogs();
-    <% if (instance.status == 'running') { %>
-        setInterval(fetchLogs, 3000);
-    <% } %>
+    async function deleteFile(path) {
+        if(!confirm('Delete?')) return;
+        await fetch(`/server/${serverId}/files/delete`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path}) });
+        loadFiles(currentPath);
+    }
+
+    async function openCreateFolderModal() {
+        const name = prompt("Folder name:");
+        if(!name) return;
+        const newPath = currentPath ? currentPath + '/' + name : name;
+        await fetch(`/server/${serverId}/files/mkdir`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path: newPath}) });
+        loadFiles(currentPath);
+    }
+
+    async function editFile(path, name) {
+        document.getElementById('editor-filename').innerText = name;
+        document.getElementById('editor-filepath').value = path;
+        document.getElementById('editor-content').value = "Loading...";
+        new bootstrap.Modal(document.getElementById('modal-file-editor')).show();
+        const res = await fetch(`/server/${serverId}/files/content?path=${encodeURIComponent(path)}`);
+        const data = await res.json();
+        if(data.success) document.getElementById('editor-content').value = data.content;
+    }
+
+    async function saveFile() {
+        const path = document.getElementById('editor-filepath').value;
+        const content = document.getElementById('editor-content').value;
+        await fetch(`/server/${serverId}/files/save`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path, content}) });
+        bootstrap.Modal.getInstance(document.getElementById('modal-file-editor')).hide();
+        loadFiles(currentPath);
+    }
+
+    function openUploadModal() {
+        document.getElementById('upload-current-path').value = currentPath;
+        new bootstrap.Modal(document.getElementById('modal-upload')).show();
+    }
+
+    async function performUpload() {
+        const input = document.getElementById('upload-file-input');
+        if(!input.files[0]) return;
+        const formData = new FormData();
+        formData.append('file', input.files[0]);
+        formData.append('path', document.getElementById('upload-current-path').value);
+        
+        const btn = document.querySelector('#modal-upload .btn-primary');
+        btn.innerText = "Uploading..."; btn.disabled = true;
+        
+        try {
+            await fetch(`/server/${serverId}/files/upload`, { method: 'POST', body: formData });
+        } catch(e) { alert("Upload failed"); }
+        
+        btn.innerText = "Upload"; btn.disabled = false;
+        bootstrap.Modal.getInstance(document.getElementById('modal-upload')).hide();
+        loadFiles(currentPath);
+    }
 </script>
 
 <%- include('partials/footer') %>

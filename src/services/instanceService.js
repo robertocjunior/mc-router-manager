@@ -19,6 +19,7 @@ class InstanceService {
                 if (err) return reject(err);
                 
                 let port = (row && row.maxPort) ? row.maxPort + 1 : 25566;
+                // Evita conflito com a porta do roteador
                 if (port === this.routerPort) port++;
 
                 const instanceFolder = path.join(this.instancesDir, name);
@@ -166,7 +167,7 @@ class InstanceService {
         }
     }
 
-    // Para o servidor e ESPERA ele morrer (Promise)
+    // Para o servidor e ESPERA ele morrer (Promise Segura)
     async stopAndWait(id) {
         return new Promise((resolve) => {
             const child = this.activeProcesses[id];
@@ -175,6 +176,7 @@ class InstanceService {
             console.log(`Parando servidor ID ${id} e aguardando encerramento...`);
             this.retryCounters[id] = 0;
             
+            // Remove listener padrão para não acionar crash handler
             child.removeAllListeners('close'); 
             child.on('close', () => {
                 delete this.activeProcesses[id];
@@ -185,7 +187,7 @@ class InstanceService {
 
             child.kill('SIGTERM');
 
-            // Timeout de segurança: 10s
+            // Timeout de segurança: 10s para forçar kill
             setTimeout(() => {
                 if (this.activeProcesses[id]) {
                     console.log("Forçando morte do processo...");
@@ -239,6 +241,7 @@ class InstanceService {
                 const propPath = path.join(this.instancesDir, row.name, 'server.properties');
                 
                 let safeContent = content;
+                // Garante que a porta interna não seja alterada manualmente
                 const portRegex = /^server-port=.*/m;
                 if (portRegex.test(safeContent)) {
                     safeContent = safeContent.replace(portRegex, `server-port=${row.port}`);
@@ -258,6 +261,8 @@ class InstanceService {
         await this.stopAndWait(id);
         await this.startInstance(id);
     }
+
+    // --- MÉTODOS DE MUNDO (World Manager) ---
 
     async _getWorldFolderName(instanceName) {
         const propPath = path.join(this.instancesDir, instanceName, 'server.properties');
@@ -298,7 +303,7 @@ class InstanceService {
             db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
                 if (err || !instance) return reject("Instance not found");
 
-                // 1. Para o servidor de forma segura
+                // Para o servidor antes de mexer
                 await this.stopAndWait(id);
 
                 const worldName = await this._getWorldFolderName(instance.name);
@@ -309,7 +314,6 @@ class InstanceService {
                     const zip = new AdmZip(zipFile.path);
                     zip.extractAllTo(worldPath, true);
                     
-                    // 2. Inicia de novo
                     await this.startInstance(id);
                     resolve();
 
@@ -320,25 +324,20 @@ class InstanceService {
         });
     }
 
-    // --- RESET WORLD ---
     async resetWorld(id) {
         return new Promise((resolve, reject) => {
             db.get("SELECT * FROM instances WHERE id = ?", [id], async (err, instance) => {
                 if (err || !instance) return reject("Instance not found");
 
-                // 1. Para o servidor
                 await this.stopAndWait(id);
 
                 const worldName = await this._getWorldFolderName(instance.name);
                 const worldPath = path.join(this.instancesDir, instance.name, worldName);
 
                 try {
-                    // 2. Apaga a pasta do mundo
                     if (await fs.pathExists(worldPath)) {
                         await fs.remove(worldPath);
                     }
-                    
-                    // 3. Inicia (Minecraft recria o mundo)
                     await this.startInstance(id);
                     resolve();
                 } catch (e) {
@@ -346,6 +345,124 @@ class InstanceService {
                 }
             });
         });
+    }
+
+    // ---------------------------------------------------------
+    // FILE MANAGER (Gerenciador de Arquivos)
+    // ---------------------------------------------------------
+
+    // Valida e Resolve Caminho Seguro para evitar Path Traversal
+    async _resolveSafePath(instanceId, subpath) {
+        return new Promise((resolve, reject) => {
+            db.get("SELECT name FROM instances WHERE id = ?", [instanceId], (err, row) => {
+                if (err || !row) return reject("Server not found");
+                
+                const rootPath = path.resolve(this.instancesDir, row.name);
+                const requestedPath = path.resolve(rootPath, subpath || '.');
+
+                // Segurança: Impede acesso fora da pasta do servidor
+                if (!requestedPath.startsWith(rootPath)) {
+                    return reject("Access Denied: Path traversal detected");
+                }
+
+                resolve({ fullPath: requestedPath, rootPath, instanceName: row.name });
+            });
+        });
+    }
+
+    async listFiles(id, subpath) {
+        try {
+            const { fullPath } = await this._resolveSafePath(id, subpath);
+            
+            if (!await fs.pathExists(fullPath)) return [];
+            
+            const stats = await fs.stat(fullPath);
+            if (!stats.isDirectory()) return [];
+
+            const files = await fs.readdir(fullPath, { withFileTypes: true });
+            
+            const result = await Promise.all(files.map(async (file) => {
+                const filePath = path.join(fullPath, file.name);
+                const fileStat = await fs.stat(filePath);
+                return {
+                    name: file.name,
+                    isDirectory: file.isDirectory(),
+                    size: fileStat.size,
+                    mtime: fileStat.mtime
+                };
+            }));
+            
+            // Ordena: Pastas primeiro
+            return result.sort((a, b) => {
+                if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
+                return a.isDirectory ? -1 : 1;
+            });
+        } catch (e) {
+            throw new Error("Error listing files: " + e.message);
+        }
+    }
+
+    async getFileContent(id, subpath) {
+        try {
+            const { fullPath } = await this._resolveSafePath(id, subpath);
+            const content = await fs.readFile(fullPath, 'utf8');
+            return content;
+        } catch (e) {
+            throw new Error("Error reading file");
+        }
+    }
+
+    async writeFileContent(id, subpath, content) {
+        try {
+            const { fullPath } = await this._resolveSafePath(id, subpath);
+            await fs.writeFile(fullPath, content, 'utf8');
+        } catch (e) {
+            throw new Error("Error writing file");
+        }
+    }
+
+    async createDirectory(id, subpath) {
+        try {
+            const { fullPath } = await this._resolveSafePath(id, subpath);
+            await fs.ensureDir(fullPath);
+        } catch (e) {
+            throw new Error("Error creating directory");
+        }
+    }
+
+    async deleteFileOrFolder(id, subpath) {
+        try {
+            const { fullPath, rootPath } = await this._resolveSafePath(id, subpath);
+            if (fullPath === rootPath) throw new Error("Cannot delete root folder");
+            await fs.remove(fullPath);
+        } catch (e) {
+            throw new Error("Error deleting");
+        }
+    }
+
+    async uploadFileToFolder(id, subpath, file) {
+        try {
+            const { fullPath } = await this._resolveSafePath(id, subpath);
+            // Se fullPath for arquivo, usa diretório pai
+            let targetDir = fullPath;
+            if (await fs.pathExists(fullPath) && (await fs.stat(fullPath)).isFile()) {
+                targetDir = path.dirname(fullPath);
+            }
+            
+            if (!await fs.pathExists(targetDir)) await fs.ensureDir(targetDir);
+
+            await fs.move(file.path, path.join(targetDir, file.originalname), { overwrite: true });
+        } catch (e) {
+            throw new Error("Error uploading file");
+        }
+    }
+    
+    async getDownloadPath(id, subpath) {
+        const { fullPath } = await this._resolveSafePath(id, subpath);
+        if (await fs.pathExists(fullPath) && (await fs.stat(fullPath)).isFile()) {
+            return fullPath;
+        }
+        throw new Error("File not found");
     }
 }
 
