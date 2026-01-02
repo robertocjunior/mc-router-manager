@@ -262,8 +262,6 @@
                 <button type="button" class="btn btn-warning" onclick="performBulkAction('ban')">Ban</button>
                 <button type="button" class="btn btn-secondary" onclick="performBulkAction('op')">OP</button>
                 <button type="button" class="btn btn-secondary" onclick="performBulkAction('deop')">DEOP</button>
-                <button type="button" class="btn btn-white" onclick="performBulkAction('gamemode creative')">GM 1</button>
-                <button type="button" class="btn btn-white" onclick="performBulkAction('gamemode survival')">GM 0</button>
             </div>
         </div>
       </div>
@@ -370,7 +368,8 @@
     }
 
     async function performBulkAction(action) {
-        const selected = Array.from(document.querySelectorAll('.player-checkbox:checked')).map(cb =>Cb.value);
+        // CORRIGIDO: cb.value em vez de Cb.value
+        const selected = Array.from(document.querySelectorAll('.player-checkbox:checked')).map(cb => cb.value);
         if (selected.length === 0) return alert("Select at least one player.");
         
         if (!confirm(`Perform '${action}' on ${selected.length} players?`)) return;
