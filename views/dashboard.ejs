@@ -1,5 +1,45 @@
 <%- include('partials/header') %>
 
+<style>
+    #global-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7); /* Fundo escuro semi-transparente */
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        
+        /* Transição Suave */
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.4s ease-in-out, visibility 0.4s ease-in-out;
+        
+        /* Efeito de Desfoque (Glassmorphism) */
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+
+    #global-loader.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* Animação suave no texto */
+    #global-loader-text {
+        animation: pulse 1.5s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 0.7; }
+        50% { opacity: 1; }
+    }
+</style>
+
 <div class="page-header d-print-none">
   <div class="container-xl">
     <div class="row g-2 align-items-center">
@@ -85,7 +125,7 @@
 
 <div class="modal modal-blur fade" id="modal-new-instance" tabindex="-1" role="dialog" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
-    <form action="/instances/create" method="POST" enctype="multipart/form-data" onsubmit="showGlobalLoader('Creating Server... This may take a few seconds to unpack files.')">
+    <form action="/instances/create" method="POST" enctype="multipart/form-data" onsubmit="showGlobalLoader('Creating Server... This may take a few seconds.')">
         <div class="modal-content">
         <div class="modal-header">
             <h5 class="modal-title">Create New Server</h5>
@@ -123,14 +163,14 @@
   </div>
 </div>
 
-<div id="global-loader" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:99999; flex-direction:column; align-items:center; justify-content:center;">
+<div id="global-loader">
     <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
     <div id="global-loader-text" class="mt-3 text-white h2">Processing...</div>
 </div>
 
 <script>
     function showGlobalLoader(msg) {
-        // Esconde o modal atual para focar no loading
+        // Esconde modais abertos
         const modals = document.querySelectorAll('.modal');
         modals.forEach(m => {
             try {
@@ -140,7 +180,8 @@
         });
 
         document.getElementById('global-loader-text').innerText = msg || "Processing...";
-        document.getElementById('global-loader').style.display = 'flex';
+        // Adiciona a classe que ativa a opacidade/visibilidade
+        document.getElementById('global-loader').classList.add('visible');
     }
 </script>
 
