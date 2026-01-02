@@ -187,16 +187,28 @@ class InstanceService {
         });
     }
 
+    // --- MODIFICADO: Retorna lista de players ---
     async getServerStatus(uuid) {
         return new Promise((resolve, reject) => {
             db.get("SELECT port, status FROM instances WHERE uuid = ?", [uuid], async (err, row) => {
                 if (err || !row) return reject("Server not found");
-                if (row.status !== 'running') return resolve({ online: false, players: 0, max: 0 });
+                
+                if (row.status !== 'running') {
+                    return resolve({ online: false, players: 0, max: 0, playerList: [] });
+                }
 
                 try {
                     const status = await mcUtil.status('127.0.0.1', row.port, { timeout: 1000 });
-                    resolve({ online: true, players: status.players.online, max: status.players.max, version: status.version.name });
-                } catch (e) { resolve({ online: false, players: 0, max: 0 }); }
+                    resolve({
+                        online: true,
+                        players: status.players.online,
+                        max: status.players.max,
+                        version: status.version.name,
+                        playerList: status.players.sample || [] // <--- LISTA DE PLAYERS
+                    });
+                } catch (e) {
+                    resolve({ online: false, players: 0, max: 0, playerList: [] });
+                }
             });
         });
     }

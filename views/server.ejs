@@ -2,19 +2,11 @@
 
 <style>
     #global-loader {
-        position: fixed;
-        top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 99999;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.4s ease-in-out, visibility 0.4s ease-in-out;
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.7); z-index: 99999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        opacity: 0; visibility: hidden; transition: opacity 0.4s, visibility 0.4s;
+        backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     }
     #global-loader.visible { opacity: 1; visibility: visible; }
     #global-loader-text { animation: pulse 1.5s infinite ease-in-out; }
@@ -78,7 +70,7 @@
                     <div class="mb-3">
                         <label class="form-label">Players</label>
                         <button class="btn btn-outline-primary w-100" onclick="openPlayerModal()">
-                            Manage Players
+                            Manage Players (Online)
                         </button>
                     </div>
                     <% } %>
@@ -132,14 +124,7 @@
                             </div>
                             <div class="table-responsive" style="max-height: 500px;">
                                 <table class="table table-vcenter table-mobile-md card-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Size</th>
-                                            <th>Modified</th>
-                                            <th class="w-1"></th>
-                                        </tr>
-                                    </thead>
+                                    <thead><tr><th>Name</th><th>Size</th><th>Modified</th><th class="w-1"></th></tr></thead>
                                     <tbody id="file-list-body">
                                         <tr><td colspan="4" class="text-center">Loading files...</td></tr>
                                     </tbody>
@@ -220,39 +205,66 @@
   </div>
 </div>
 
-<div id="global-loader"><div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div><div id="global-loader-text" class="mt-3 text-white h2">Processing...</div></div>
+<div id="global-loader">
+    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+    <div id="global-loader-text" class="mt-3 text-white h2">Processing...</div>
+</div>
 
 <div class="modal modal-blur fade" id="modal-player-manager" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Player Management</h5>
+          <h5 class="modal-title">Online Player Manager</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
-            <div class="mb-3">
-                <label class="form-label">Action</label>
-                <select id="player-action-select" class="form-select" onchange="updatePlayerConfirmPlaceholder()">
-                    <option value="op">OP (Operator)</option>
-                    <option value="deop">DEOP (Remove Operator)</option>
-                    <option value="ban">BAN Player</option>
-                    <option value="pardon">UNBAN (Pardon)</option>
-                    <option value="kick">KICK Player</option>
-                    <option value="whitelist add">Whitelist Add</option>
-                    <option value="whitelist remove">Whitelist Remove</option>
-                </select>
+        <div class="modal-body p-0">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <span class="text-muted" id="player-count-display">Loading...</span>
+                <button class="btn btn-sm btn-secondary" onclick="fetchOnlinePlayers()">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+                    Refresh
+                </button>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Player Name</label>
-                <input type="text" id="player-name-input" class="form-control" placeholder="Steve">
+            <div class="table-responsive" style="max-height: 400px;">
+                <table class="table table-vcenter card-table table-striped">
+                    <thead>
+                        <tr>
+                            <th class="w-1"><input class="form-check-input m-0 align-middle" type="checkbox" id="select-all-players" onclick="toggleSelectAllPlayers(this)"></th>
+                            <th class="w-auto">Player</th>
+                            <th>ID / UUID</th>
+                        </tr>
+                    </thead>
+                    <tbody id="player-list-body">
+                        <tr><td colspan="3" class="text-center p-3">Fetching players...</td></tr>
+                    </tbody>
+                </table>
             </div>
-            <div class="mb-3">
-                <label class="form-label text-warning">Confirmation</label>
-                <input type="text" id="player-confirm-input" class="form-control" placeholder="Type 'OP' to confirm" onkeyup="checkPlayerConfirm()">
+            <div class="p-3 bg-dark-lt border-top">
+                 <label class="form-label">Manual Action (Offline Player)</label>
+                 <div class="input-group">
+                     <select class="form-select" id="manual-action-select" style="max-width: 120px;">
+                         <option value="op">OP</option>
+                         <option value="deop">DEOP</option>
+                         <option value="ban">BAN</option>
+                         <option value="pardon">UNBAN</option>
+                         <option value="whitelist add">W-Add</option>
+                         <option value="whitelist remove">W-Rem</option>
+                     </select>
+                     <input type="text" class="form-control" id="manual-player-input" placeholder="Player Name">
+                     <button class="btn btn-secondary" onclick="performManualAction()">Send</button>
+                 </div>
             </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary w-100" id="btn-player-execute" disabled onclick="executePlayerCommand()">Execute Action</button>
+        <div class="modal-footer d-flex justify-content-between">
+            <div class="text-muted small">Select players above to perform bulk actions</div>
+            <div class="btn-group">
+                <button type="button" class="btn btn-danger" onclick="performBulkAction('kick')">Kick</button>
+                <button type="button" class="btn btn-warning" onclick="performBulkAction('ban')">Ban</button>
+                <button type="button" class="btn btn-secondary" onclick="performBulkAction('op')">OP</button>
+                <button type="button" class="btn btn-secondary" onclick="performBulkAction('deop')">DEOP</button>
+                <button type="button" class="btn btn-white" onclick="performBulkAction('gamemode creative')">GM 1</button>
+                <button type="button" class="btn btn-white" onclick="performBulkAction('gamemode survival')">GM 0</button>
+            </div>
         </div>
       </div>
     </div>
@@ -290,58 +302,114 @@
     const urlParams = new URLSearchParams(window.location.search);
     if(urlParams.get('success')) window.history.replaceState({}, document.title, window.location.pathname);
 
-    // LOADING
     function showGlobalLoader(msg) {
         document.getElementById('global-loader-text').innerText = msg || "Processing...";
         document.getElementById('global-loader').classList.add('visible');
     }
 
-    // CONFIRMAÇÃO DO PLAYER MANAGER
+    // --- PLAYER MANAGER LOGIC ---
+    const serverId = '<%= instance.uuid %>';
+    
     function openPlayerModal() {
         new bootstrap.Modal(document.getElementById('modal-player-manager')).show();
-        updatePlayerConfirmPlaceholder();
+        fetchOnlinePlayers();
     }
 
-    function updatePlayerConfirmPlaceholder() {
-        const action = document.getElementById('player-action-select').value;
-        const confirmKeyword = action.split(' ')[0].toUpperCase(); // Pega OP, BAN, etc.
-        document.getElementById('player-confirm-input').placeholder = `Type '${confirmKeyword}' to confirm`;
-        checkPlayerConfirm();
-    }
-
-    function checkPlayerConfirm() {
-        const action = document.getElementById('player-action-select').value;
-        const confirmKeyword = action.split(' ')[0].toUpperCase();
-        const input = document.getElementById('player-confirm-input').value;
-        document.getElementById('btn-player-execute').disabled = (input !== confirmKeyword);
-    }
-
-    async function executePlayerCommand() {
-        const action = document.getElementById('player-action-select').value;
-        const player = document.getElementById('player-name-input').value;
-        if(!player) return alert("Enter player name");
-
-        // Monta o comando (ex: "op Steve")
-        const command = `${action} ${player}`;
-        const btn = document.getElementById('btn-player-execute');
-        btn.disabled = true; btn.innerText = "Executing...";
-
+    async function fetchOnlinePlayers() {
+        const tbody = document.getElementById('player-list-body');
+        const countDisplay = document.getElementById('player-count-display');
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center p-3">Fetching...</td></tr>';
+        
         try {
-            await fetch('/server/<%= instance.uuid %>/command', {
+            const res = await fetch(`/server/${serverId}/status`);
+            const data = await res.json();
+            
+            if (!data.success || !data.online) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center p-3 text-danger">Server is offline or unreachable.</td></tr>';
+                countDisplay.innerText = "Offline";
+                return;
+            }
+
+            const players = data.playerList || [];
+            countDisplay.innerText = `${data.players} / ${data.max} Players`;
+            
+            if (players.length === 0) {
+                if (data.players > 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center p-3 text-muted">Players are online but hidden from query sample.</td></tr>';
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center p-3 text-muted">No players online.</td></tr>';
+                }
+                return;
+            }
+
+            let html = '';
+            players.forEach(p => {
+                html += `
+                <tr>
+                    <td><input class="form-check-input m-0 align-middle player-checkbox" type="checkbox" value="${p.name}"></td>
+                    <td>
+                        <div class="d-flex py-1 align-items-center">
+                            <span class="avatar me-2" style="background-image: url(https://minotar.net/avatar/${p.name}/32)"></span>
+                            <div class="flex-fill">
+                                <div class="font-weight-medium">${p.name}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-muted text-truncate" style="max-width: 150px;">${p.id}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="3" class="text-center p-3 text-danger">${e.message}</td></tr>`;
+        }
+    }
+
+    function toggleSelectAllPlayers(source) {
+        document.querySelectorAll('.player-checkbox').forEach(cb => cb.checked = source.checked);
+    }
+
+    async function performBulkAction(action) {
+        const selected = Array.from(document.querySelectorAll('.player-checkbox:checked')).map(cb =>Cb.value);
+        if (selected.length === 0) return alert("Select at least one player.");
+        
+        if (!confirm(`Perform '${action}' on ${selected.length} players?`)) return;
+
+        let successCount = 0;
+        // Processa em série
+        for (const player of selected) {
+            const command = `${action} ${player}`;
+            try {
+                await fetch(`/server/${serverId}/command`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ command })
+                });
+                successCount++;
+            } catch(e) { console.error(e); }
+        }
+        
+        alert(`Action sent to ${successCount} players.`);
+        fetchOnlinePlayers(); // Refresh list
+    }
+
+    async function performManualAction() {
+        const player = document.getElementById('manual-player-input').value;
+        const action = document.getElementById('manual-action-select').value;
+        if(!player) return alert("Enter a name");
+        
+        try {
+            await fetch(`/server/${serverId}/command`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ command })
+                body: JSON.stringify({ command: `${action} ${player}` })
             });
-            bootstrap.Modal.getInstance(document.getElementById('modal-player-manager')).hide();
-            alert(`Command '${command}' sent successfully!`);
-            // Limpa campos
-            document.getElementById('player-name-input').value = "";
-            document.getElementById('player-confirm-input').value = "";
-        } catch(e) {
-            alert("Error sending command");
-        }
-        btn.innerText = "Execute Action";
+            alert("Command sent.");
+            document.getElementById('manual-player-input').value = "";
+            fetchOnlinePlayers();
+        } catch(e) { alert("Error sending command"); }
     }
+
 
     // CONFIRMAÇÕES DE MUNDO
     function checkUploadConfirm() { document.getElementById('btn-upload').disabled = document.getElementById('confirm-upload-input').value !== 'UPLOAD'; }
@@ -360,7 +428,7 @@
     <% if (instance.status == 'running') { %> setInterval(fetchLogs, 3000); <% } %>
 
     // FILE MANAGER
-    let currentPath = ''; const serverId = '<%= instance.uuid %>';
+    let currentPath = '';
     async function loadFiles(path) {
         currentPath = path;
         const tbody = document.getElementById('file-list-body');
@@ -383,7 +451,6 @@
             });
         } catch(e){ tbody.innerHTML = '<tr><td colspan="4" class="text-danger">Error</td></tr>'; }
     }
-    // (As funções deleteFile, openCreateFolder, openRename, performRename, editFile, saveFile, openUpload, performUpload permanecem as mesmas das versões anteriores)
     async function deleteFile(path) { if(!confirm('Delete?')) return; await fetch(`/server/${serverId}/files/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})}); loadFiles(currentPath); }
     async function openCreateFolderModal() { const n = prompt("Name:"); if(n) { await fetch(`/server/${serverId}/files/mkdir`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:currentPath?currentPath+'/'+n:n})}); loadFiles(currentPath); } }
     function openRenameModal(p) { document.getElementById('rename-old-path').value=p; document.getElementById('rename-new-path').value=p; new bootstrap.Modal(document.getElementById('modal-file-rename')).show(); }
