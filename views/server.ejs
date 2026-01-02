@@ -19,10 +19,6 @@
                     <button class="btn btn-success">Start Server</button>
                 </form>
             <% } %>
-            
-            <form action="/server/<%= instance.uuid %>/delete" method="POST" onsubmit="return confirm('Delete this server and its files? This cannot be undone.');" style="display:inline;">
-                <button class="btn btn-ghost-danger">Delete</button>
-            </form>
         </div>
       </div>
     </div>
@@ -83,6 +79,9 @@
                         </li>
                         <li class="nav-item">
                             <a href="#tabs-world" class="nav-link" data-bs-toggle="tab">World Manager</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#tabs-settings" class="nav-link" data-bs-toggle="tab">Settings</a>
                         </li>
                     </ul>
                 </div>
@@ -175,6 +174,27 @@
                             </div>
                         </div>
 
+                        <div class="tab-pane" id="tabs-settings">
+                            <form action="/server/<%= instance.uuid %>/settings" method="POST">
+                                <div class="mb-3">
+                                    <label class="form-label">Domain Address</label>
+                                    <input type="text" name="domain" class="form-control" value="<%= instance.domain %>" required>
+                                    <small class="form-hint">The domain used to connect to this server.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Start Command</label>
+                                    <input type="text" name="startCommand" class="form-control" value="<%= instance.startCommand %>">
+                                    <small class="form-hint">Command used to start the server. Use <code>{jar}</code> as placeholder.</small>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <button type="button" class="btn btn-danger" onclick="document.getElementById('form-delete').submit()">Delete Server</button>
+                                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                                </div>
+                            </form>
+                            
+                            <form id="form-delete" action="/server/<%= instance.uuid %>/delete" method="POST" onsubmit="return confirm('Delete this server and its files? This cannot be undone.');" style="display:none;"></form>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -260,7 +280,7 @@
 
     // FILE MANAGER LOGIC
     let currentPath = '';
-    const serverId = '<%= instance.uuid %>'; // ALTERADO: Usa UUID
+    const serverId = '<%= instance.uuid %>';
 
     async function loadFiles(path) {
         currentPath = path;

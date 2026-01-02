@@ -4,15 +4,14 @@ const { spawn } = require('child_process');
 const db = require('../database/db');
 const routerService = require('./routerService');
 const AdmZip = require('adm-zip');
-const crypto = require('crypto'); // Nativo do Node
+const crypto = require('crypto');
 
 class InstanceService {
     constructor() {
         this.instancesDir = path.join(process.cwd(), 'data', 'instances');
-        this.activeProcesses = {}; // Mapeia UUID -> ChildProcess
+        this.activeProcesses = {};
         this.routerPort = parseInt(process.env.MC_ROUTER_PORT || 25565);
-        this.retryCounters = {}; // Mapeia UUID -> RetryCount
-        
+        this.retryCounters = {};
         fs.ensureDirSync(path.join(process.cwd(), 'temp_uploads'));
     }
 
@@ -24,9 +23,7 @@ class InstanceService {
                 let port = (row && row.maxPort) ? row.maxPort + 1 : 25566;
                 if (port === this.routerPort) port++;
 
-                // GERAÇÃO DO HASH (8 caracteres hexadecimais)
                 const uuid = crypto.randomBytes(4).toString('hex');
-
                 const instanceFolder = path.join(this.instancesDir, name);
                 const jarName = file.filename;
 
@@ -43,7 +40,6 @@ class InstanceService {
                 let cmd = customCommand || 'java -Xmx1024M -Xms1024M -jar {jar} nogui';
                 cmd = cmd.replace('{jar}', jarName);
 
-                // Inserindo com UUID
                 db.run(
                     "INSERT INTO instances (uuid, name, domain, port, jarFile, startCommand) VALUES (?, ?, ?, ?, ?, ?)",
                     [uuid, name, domain, port, jarName, cmd],
@@ -64,7 +60,6 @@ class InstanceService {
         });
     }
 
-    // ALTERADO: Recebe UUID em vez de ID
     async deleteInstance(uuid) {
         return new Promise((resolve, reject) => {
             db.get("SELECT * FROM instances WHERE uuid = ?", [uuid], async (err, instance) => {
@@ -89,7 +84,6 @@ class InstanceService {
         });
     }
 
-    // ALTERADO: Recebe UUID
     startInstance(uuid) {
         return new Promise((resolve, reject) => {
             db.get("SELECT * FROM instances WHERE uuid = ?", [uuid], async (err, instance) => {
@@ -130,7 +124,6 @@ class InstanceService {
                 db.run("UPDATE instances SET status = 'running', pid = ? WHERE uuid = ?", [child.pid, uuid]);
 
                 child.on('close', (code) => {
-                    console.log(`Instância ${instance.name} parou com código ${code}`);
                     logFile.end();
                     delete this.activeProcesses[uuid];
 
@@ -358,9 +351,6 @@ class InstanceService {
         });
     }
 
-    // --- Métodos de Arquivo (File Manager) ---
-    // (Apenas atualizados para usar uuid na assinatura)
-
     async listFiles(uuid, subpath) {
         try {
             const { fullPath } = await this._resolveSafePath(uuid, subpath);
@@ -454,6 +444,33 @@ class InstanceService {
             return { path: tempPath, name: zipName, isTemp: true };
         }
         throw new Error("Invalid path type");
+    }
+
+    // --- NOVA FUNÇÃO: Atualizar Configurações Gerais ---
+    async updateSettings(uuid, { domain, startCommand }) {
+        return new Promise((resolve, reject) => {
+            db.get("SELECT port FROM instances WHERE uuid = ?", [uuid], (err, row) => {
+                if (err || !row) return reject("Server not found");
+                
+                // Atualiza Tabela de Instâncias
+                db.run("UPDATE instances SET domain = ?, startCommand = ? WHERE uuid = ?", 
+                    [domain, startCommand, uuid], 
+                    (err) => {
+                        if (err) return reject(err);
+                        
+                        // Atualiza Tabela de Rotas (Proxy)
+                        db.run("UPDATE routes SET sourceDomain = ? WHERE destPort = ?", 
+                            [domain, row.port], 
+                            (err) => {
+                                if (err) return reject(err);
+                                routerService.syncAndRestart(); // Aplica nova rota
+                                resolve();
+                            }
+                        );
+                    }
+                );
+            });
+        });
     }
 }
 
