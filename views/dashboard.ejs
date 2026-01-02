@@ -65,6 +65,7 @@
     <% } %>
 
     <div class="row row-cards">
+ 
         <% if (instances && instances.length > 0) { %>
             <% instances.forEach(function(inst) { %>
             <div class="col-sm-6 col-lg-4">
@@ -87,12 +88,9 @@
                                 <div class="text-muted"><%= inst.domain %></div>
                             </div>
                         </div>
+                        
                         <div class="row">
                             <div class="col-6">
-                                <div class="text-muted small">Port</div>
-                                <div class="font-weight-medium"><%= routerPort %></div>
-                            </div>
-                            <div class="col-6 text-end">
                                 <div class="text-muted small">Status</div>
                                 <% if (inst.status == 'running') { %>
                                     <span class="badge bg-success">Running</span>
@@ -100,7 +98,15 @@
                                     <span class="badge bg-secondary">Stopped</span>
                                 <% } %>
                             </div>
+                            
+                            <div class="col-6 text-end">
+                                <div class="text-muted small">Players</div>
+                                <span class="badge bg-azure text-azure-fg player-count" data-uuid="<%= inst.uuid %>">
+                                    - / -
+                                </span>
+                            </div>
                         </div>
+
                     </div>
                 </a>
             </div>
@@ -178,11 +184,42 @@
                 if(instance) instance.hide();
             } catch(e){}
         });
-
         document.getElementById('global-loader-text').innerText = msg || "Processing...";
         // Adiciona a classe que ativa a opacidade/visibilidade
         document.getElementById('global-loader').classList.add('visible');
     }
+
+    // --- SCRIPT PARA ATUALIZAR STATUS DOS PLAYERS ---
+    async function updatePlayerCounts() {
+        const badges = document.querySelectorAll('.player-count');
+        badges.forEach(async (badge) => {
+            const uuid = badge.getAttribute('data-uuid');
+            try {
+                // Chama a API criada para pegar status
+                const res = await fetch(`/server/${uuid}/status`);
+                const data = await res.json();
+                
+                if(data.success && data.online) {
+                    badge.innerText = `${data.players} / ${data.max}`;
+                    // Muda cor para verde se estiver online
+                    badge.className = 'badge bg-success text-success-fg player-count';
+                } else {
+                    badge.innerText = "Offline";
+                    // Muda cor para cinza se estiver offline
+                    badge.className = 'badge bg-secondary text-secondary-fg player-count';
+                }
+            } catch(e) {
+                console.error(e);
+                badge.innerText = "?";
+            }
+        });
+    }
+
+    // Atualiza ao carregar a página
+    document.addEventListener('DOMContentLoaded', updatePlayerCounts);
+    
+    // Atualiza a cada 5 segundos
+    setInterval(updatePlayerCounts, 5000);
 </script>
 
 <%- include('partials/footer') %>

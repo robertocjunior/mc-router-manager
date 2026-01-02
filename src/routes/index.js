@@ -33,7 +33,20 @@ router.get('/server/:uuid', async (req, res) => {
     });
 });
 
-router.get('/server/:uuid/logs', async (req, res) => { const logs = await instanceService.getLogs(req.params.uuid); res.send(logs); });
+router.get('/server/:uuid/logs', async (req, res) => { 
+    const logs = await instanceService.getLogs(req.params.uuid); 
+    res.send(logs); 
+});
+
+// --- NOVA ROTA: STATUS DO JOGO (PLAYERS) ---
+router.get('/server/:uuid/status', async (req, res) => {
+    try {
+        const status = await instanceService.getServerStatus(req.params.uuid);
+        res.json({ success: true, ...status });
+    } catch (e) {
+        res.json({ success: false, online: false });
+    }
+});
 
 // --- AÇÕES DO SERVIDOR ---
 router.post('/instances/create', upload.single('serverJar'), async (req, res) => {
@@ -47,12 +60,40 @@ router.post('/instances/create', upload.single('serverJar'), async (req, res) =>
     } catch (error) { res.redirect('/?error=' + encodeURIComponent(error.message)); }
 });
 
-router.post('/server/:uuid/start', async (req, res) => { try { await instanceService.startInstance(req.params.uuid); res.redirect('/server/' + req.params.uuid); } catch (error) { res.redirect('/server/' + req.params.uuid + '?error=' + encodeURIComponent(error)); } });
-router.post('/server/:uuid/stop', async (req, res) => { instanceService.stopInstance(req.params.uuid); setTimeout(() => res.redirect('/server/' + req.params.uuid), 1000); });
-router.post('/server/:uuid/delete', async (req, res) => { try { await instanceService.deleteInstance(req.params.uuid); res.redirect('/'); } catch (error) { res.redirect('/server/' + req.params.uuid + '?error=' + encodeURIComponent(error)); } });
-router.post('/server/:uuid/properties', async (req, res) => { try { await instanceService.saveProperties(req.params.uuid, req.body.content); await instanceService.restartInstance(req.params.uuid); res.redirect('/server/' + req.params.uuid + '?success=Properties saved. Server restarting...'); } catch (error) { res.redirect('/server/' + req.params.uuid + '?error=' + encodeURIComponent(error.message)); } });
+router.post('/server/:uuid/start', async (req, res) => { 
+    try { 
+        await instanceService.startInstance(req.params.uuid); 
+        res.redirect('/server/' + req.params.uuid); 
+    } catch (error) { 
+        res.redirect('/server/' + req.params.uuid + '?error=' + encodeURIComponent(error)); 
+    } 
+});
 
-// --- NOVA ROTA: SETTINGS UPDATE ---
+router.post('/server/:uuid/stop', async (req, res) => { 
+    instanceService.stopInstance(req.params.uuid); 
+    setTimeout(() => res.redirect('/server/' + req.params.uuid), 1000); 
+});
+
+router.post('/server/:uuid/delete', async (req, res) => { 
+    try { 
+        await instanceService.deleteInstance(req.params.uuid); 
+        res.redirect('/'); 
+    } catch (error) { 
+        res.redirect('/server/' + req.params.uuid + '?error=' + encodeURIComponent(error)); 
+    } 
+});
+
+router.post('/server/:uuid/properties', async (req, res) => { 
+    try { 
+        await instanceService.saveProperties(req.params.uuid, req.body.content); 
+        await instanceService.restartInstance(req.params.uuid); 
+        res.redirect('/server/' + req.params.uuid + '?success=Properties saved. Server restarting...'); 
+    } catch (error) { 
+        res.redirect('/server/' + req.params.uuid + '?error=' + encodeURIComponent(error.message)); 
+    } 
+});
+
+// --- SETTINGS UPDATE ---
 router.post('/server/:uuid/settings', async (req, res) => {
     try {
         await instanceService.updateSettings(req.params.uuid, req.body);
@@ -62,10 +103,45 @@ router.post('/server/:uuid/settings', async (req, res) => {
     }
 });
 
+// --- NOVA ROTA: ENVIAR COMANDO ---
+router.post('/server/:uuid/command', async (req, res) => {
+    try {
+        await instanceService.sendCommand(req.params.uuid, req.body.command);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // --- WORLD MANAGER ---
-router.get('/server/:uuid/world/download', async (req, res) => { try { const zipPath = await instanceService.downloadWorld(req.params.uuid); res.download(zipPath, 'world-backup.zip'); } catch (error) { res.status(500).send("Error: " + error.message); } });
-router.post('/server/:uuid/world/upload', upload.single('worldZip'), async (req, res) => { try { const file = req.file; if (!file) return res.redirect('/server/' + req.params.uuid + '?error=No file'); await instanceService.restoreWorld(req.params.uuid, file); res.redirect('/server/' + req.params.uuid + '?success=Restored.'); } catch (error) { res.redirect('/server/' + req.params.uuid + '?error=' + encodeURIComponent(error.message)); } });
-router.post('/server/:uuid/world/reset', async (req, res) => { try { await instanceService.resetWorld(req.params.uuid); res.redirect('/server/' + req.params.uuid + '?success=Reset done.'); } catch (error) { res.redirect('/server/' + req.params.uuid + '?error=' + encodeURIComponent(error.message)); } });
+router.get('/server/:uuid/world/download', async (req, res) => { 
+    try { 
+        const zipPath = await instanceService.downloadWorld(req.params.uuid); 
+        res.download(zipPath, 'world-backup.zip'); 
+    } catch (error) { 
+        res.status(500).send("Error: " + error.message); 
+    } 
+});
+
+router.post('/server/:uuid/world/upload', upload.single('worldZip'), async (req, res) => { 
+    try { 
+        const file = req.file; 
+        if (!file) return res.redirect('/server/' + req.params.uuid + '?error=No file'); 
+        await instanceService.restoreWorld(req.params.uuid, file); 
+        res.redirect('/server/' + req.params.uuid + '?success=Restored.'); 
+    } catch (error) { 
+        res.redirect('/server/' + req.params.uuid + '?error=' + encodeURIComponent(error.message)); 
+    } 
+});
+
+router.post('/server/:uuid/world/reset', async (req, res) => { 
+    try { 
+        await instanceService.resetWorld(req.params.uuid); 
+        res.redirect('/server/' + req.params.uuid + '?success=Reset done.'); 
+    } catch (error) { 
+        res.redirect('/server/' + req.params.uuid + '?error=' + encodeURIComponent(error.message)); 
+    } 
+});
 
 // --- FILE MANAGER API ---
 router.get('/server/:uuid/files/list', async (req, res) => {

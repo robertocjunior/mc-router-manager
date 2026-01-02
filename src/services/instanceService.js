@@ -5,6 +5,7 @@ const db = require('../database/db');
 const routerService = require('./routerService');
 const AdmZip = require('adm-zip');
 const crypto = require('crypto');
+const mcUtil = require('minecraft-server-util'); // NOVA DEPENDÊNCIA
 
 class InstanceService {
     constructor() {
@@ -15,27 +16,33 @@ class InstanceService {
         fs.ensureDirSync(path.join(process.cwd(), 'temp_uploads'));
     }
 
-    // ... (MANTENHA TODOS OS MÉTODOS ANTERIORES: createInstance, deleteInstance, startInstance, etc...)
-    // ... Copie o código anterior até chegar no final da classe ...
-
     async createInstance(name, domain, file, customCommand) {
         return new Promise((resolve, reject) => {
             db.get("SELECT MAX(port) as maxPort FROM instances", async (err, row) => {
                 if (err) return reject(err);
+                
                 let port = (row && row.maxPort) ? row.maxPort + 1 : 25566;
                 if (port === this.routerPort) port++;
+                
                 const uuid = crypto.randomBytes(4).toString('hex');
                 const instanceFolder = path.join(this.instancesDir, name);
                 const jarName = file.filename;
+                
                 try {
                     await fs.ensureDir(instanceFolder);
                     await fs.move(file.path, path.join(instanceFolder, jarName));
                     await fs.writeFile(path.join(instanceFolder, 'eula.txt'), 'eula=true');
-                    await fs.writeFile(path.join(instanceFolder, 'server.properties'), `server-port=${port}\nonline-mode=false`);
+                    
+                    // FORÇA query habilitada na criação
+                    const props = `server-port=${port}\nonline-mode=false\nenable-query=true\nquery.port=${port}`;
+                    await fs.writeFile(path.join(instanceFolder, 'server.properties'), props);
+                    
                     await fs.writeFile(path.join(instanceFolder, 'latest.log'), '');
                 } catch (ioErr) { return reject(ioErr); }
+                
                 let cmd = customCommand || 'java -Xmx1024M -Xms1024M -jar {jar} nogui';
                 cmd = cmd.replace('{jar}', jarName);
+                
                 db.run("INSERT INTO instances (uuid, name, domain, port, jarFile, startCommand) VALUES (?, ?, ?, ?, ?, ?)", [uuid, name, domain, port, jarName, cmd], function (dbErr) {
                         if (dbErr) return reject(dbErr);
                         db.run("INSERT INTO routes (sourceDomain, listeningPort, destHost, destPort, description) VALUES (?, ?, ?, ?, ?)", [domain, this.routerPort, '127.0.0.1', port, `Auto-generated for ${name}`], (routeErr) => { if (!routeErr) routerService.syncAndRestart(); });
@@ -137,15 +144,70 @@ class InstanceService {
         });
     }
 
+    // --- SALVAR PROPERTIES (MODIFICADO) ---
     async saveProperties(uuid, content) {
         return new Promise((resolve, reject) => {
             db.get("SELECT name, port FROM instances WHERE uuid = ?", [uuid], async (err, row) => {
                 if (err || !row) return reject("Instance not found");
                 const propPath = path.join(this.instancesDir, row.name, 'server.properties');
+                
                 let safeContent = content;
+
+                // 1. FORÇA A PORTA CORRETA
                 const portRegex = /^server-port=.*/m;
-                if (portRegex.test(safeContent)) { safeContent = safeContent.replace(portRegex, `server-port=${row.port}`); } else { safeContent += `\nserver-port=${row.port}`; }
-                try { await fs.writeFile(propPath, safeContent); resolve(); } catch (e) { reject(e); }
+                if (portRegex.test(safeContent)) {
+                    safeContent = safeContent.replace(portRegex, `server-port=${row.port}`);
+                } else {
+                    safeContent += `\nserver-port=${row.port}`;
+                }
+
+                // 2. FORÇA QUERY ENABLED e QUERY PORT
+                const queryRegex = /^enable-query=.*/m;
+                if (queryRegex.test(safeContent)) {
+                    safeContent = safeContent.replace(queryRegex, `enable-query=true`);
+                } else {
+                    safeContent += `\nenable-query=true`;
+                }
+
+                const queryPortRegex = /^query\.port=.*/m;
+                if (queryPortRegex.test(safeContent)) {
+                    safeContent = safeContent.replace(queryPortRegex, `query.port=${row.port}`);
+                } else {
+                    safeContent += `\nquery.port=${row.port}`;
+                }
+
+                try {
+                    await fs.writeFile(propPath, safeContent);
+                    resolve();
+                } catch (e) { reject(e); }
+            });
+        });
+    }
+
+    // --- NOVO MÉTODO: OBTER STATUS DO JOGO ---
+    async getServerStatus(uuid) {
+        return new Promise((resolve, reject) => {
+            db.get("SELECT port, status FROM instances WHERE uuid = ?", [uuid], async (err, row) => {
+                if (err || !row) return reject("Server not found");
+                
+                // Se o servidor estiver parado no DB, nem tenta pingar
+                if (row.status !== 'running') {
+                    return resolve({ online: false, players: 0, max: 0 });
+                }
+
+                try {
+                    // Tenta conectar via TCP (Server List Ping) no localhost
+                    const status = await mcUtil.status('127.0.0.1', row.port, { timeout: 1000 });
+                    resolve({
+                        online: true,
+                        players: status.players.online,
+                        max: status.players.max,
+                        version: status.version.name
+                    });
+                } catch (e) {
+                    // Se falhar o ping, considera offline ou carregando
+                    resolve({ online: false, players: 0, max: 0 });
+                }
             });
         });
     }
@@ -318,7 +380,6 @@ class InstanceService {
         });
     }
 
-    // --- NOVO MÉTODO: ENVIAR COMANDO (Player Manager) ---
     async sendCommand(uuid, command) {
         return new Promise((resolve, reject) => {
             const process = this.activeProcesses[uuid];
