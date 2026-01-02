@@ -1,7 +1,6 @@
 <%- include('partials/header') %>
 
 <style>
-    /* Loader Global */
     #global-loader {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(0, 0, 0, 0.7); z-index: 99999;
@@ -11,14 +10,6 @@
     }
     #global-loader.visible { opacity: 1; visibility: visible; }
     #global-loader-text { animation: pulse 1.5s infinite ease-in-out; }
-    
-    /* Scroll no console */
-    #console-output {
-        height: 500px; overflow-y: scroll; border-radius: 4px; 
-        font-family: 'Consolas', 'Monaco', monospace; font-size: 12px;
-        white-space: pre-wrap; word-wrap: break-word;
-    }
-
     @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
 </style>
 
@@ -33,9 +24,13 @@
       <div class="col-auto ms-auto d-print-none">
         <div class="btn-list">
             <% if (instance.status == 'running') { %>
-                <button class="btn btn-danger" onclick="confirmAction('Stop Server', 'Are you sure you want to STOP this server?', () => postForm('/server/<%= instance.uuid %>/stop'))">Stop Server</button>
+                <form action="/server/<%= instance.uuid %>/stop" method="POST" style="display:inline;" onsubmit="showGlobalLoader('Stopping Server...')">
+                    <button class="btn btn-danger">Stop Server</button>
+                </form>
             <% } else { %>
-                <button class="btn btn-success" onclick="postForm('/server/<%= instance.uuid %>/start', true)">Start Server</button>
+                <form action="/server/<%= instance.uuid %>/start" method="POST" style="display:inline;" onsubmit="showGlobalLoader('Starting Server...')">
+                    <button class="btn btn-success">Start Server</button>
+                </form>
             <% } %>
         </div>
       </div>
@@ -47,14 +42,10 @@
   <div class="container-xl">
     
     <% if (typeof query !== 'undefined' && query.success) { %>
-        <div class="alert alert-success alert-dismissible" role="alert">
-            <%= query.success %> <a href="#" class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
-        </div>
+        <div class="alert alert-success"><%= query.success %></div>
     <% } %>
     <% if (typeof query !== 'undefined' && query.error) { %>
-        <div class="alert alert-danger alert-dismissible" role="alert">
-            <%= query.error %> <a href="#" class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
-        </div>
+        <div class="alert alert-danger"><%= query.error %></div>
     <% } %>
 
     <div class="row">
@@ -63,7 +54,7 @@
                 <div class="card-body">
                     <div class="mb-3">
                         <label class="form-label">Address</label>
-                        <div class="form-control-plaintext font-weight-bold text-truncate"><%= instance.domain %></div>
+                        <div class="form-control-plaintext font-weight-bold"><%= instance.domain %></div>
                         <small class="text-muted">Port: <%= routerPort %></small>
                     </div>
                     <div class="mb-3">
@@ -86,7 +77,7 @@
 
                     <div class="mb-3">
                         <label class="form-label">JAR File</label>
-                        <div class="text-break small text-muted"><%= instance.jarFile %></div>
+                        <div class="text-break small"><%= instance.jarFile %></div>
                     </div>
                 </div>
             </div>
@@ -96,39 +87,44 @@
             <div class="card">
                 <div class="card-header">
                     <ul class="nav nav-tabs card-header-tabs" data-bs-toggle="tabs">
-                        <li class="nav-item"><a href="#tabs-console" class="nav-link active" data-bs-toggle="tab">Console</a></li>
-                        <li class="nav-item"><a href="#tabs-files" class="nav-link" data-bs-toggle="tab" onclick="loadFiles('')">File Manager</a></li>
-                        <li class="nav-item"><a href="#tabs-properties" class="nav-link" data-bs-toggle="tab">Properties</a></li>
-                        <li class="nav-item"><a href="#tabs-world" class="nav-link" data-bs-toggle="tab">World</a></li>
-                        <li class="nav-item"><a href="#tabs-settings" class="nav-link" data-bs-toggle="tab">Settings</a></li>
+                        <li class="nav-item">
+                            <a href="#tabs-console" class="nav-link active" data-bs-toggle="tab">Console</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#tabs-files" class="nav-link" data-bs-toggle="tab" onclick="loadFiles('')">File Manager</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#tabs-properties" class="nav-link" data-bs-toggle="tab">Server Properties</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#tabs-world" class="nav-link" data-bs-toggle="tab">World Manager</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#tabs-settings" class="nav-link" data-bs-toggle="tab">Settings</a>
+                        </li>
                     </ul>
                 </div>
                 <div class="card-body">
                     <div class="tab-content">
                         
                         <div class="tab-pane active show" id="tabs-console">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted small align-self-center">Auto-refreshes every 3s</span>
-                                <button onclick="fetchLogs()" class="btn btn-sm btn-secondary">Refresh Now</button>
+                            <div class="d-flex justify-content-end mb-2">
+                                <button onclick="fetchLogs()" class="btn btn-sm btn-secondary">Refresh Logs</button>
                             </div>
-                            <pre id="console-output" class="bg-dark text-light p-3">Loading logs...</pre>
-                            <div class="mt-2 input-group">
-                                <input type="text" id="console-input" class="form-control" placeholder="Send command to server..." onkeypress="if(event.key==='Enter') sendConsoleCommand()">
-                                <button class="btn btn-primary" onclick="sendConsoleCommand()">Send</button>
-                            </div>
+                            <pre id="console-output" class="bg-dark text-light p-3" style="height: 500px; overflow-y: scroll; border-radius: 4px; font-family: monospace; font-size: 12px;">Loading logs...</pre>
                         </div>
 
                         <div class="tab-pane" id="tabs-files">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <div id="file-breadcrumb" class="text-muted font-monospace">/</div>
+                                <div id="file-breadcrumb" class="text-muted">/</div>
                                 <div class="btn-group">
-                                    <button class="btn btn-sm btn-white" onclick="promptModal('Create Folder', 'Enter folder name:', createFolder)">New Folder</button>
+                                    <button class="btn btn-sm btn-white" onclick="openCreateFolderModal()">New Folder</button>
                                     <button class="btn btn-sm btn-primary" onclick="openUploadModal()">Upload File</button>
                                 </div>
                             </div>
                             <div class="table-responsive" style="max-height: 500px;">
-                                <table class="table table-vcenter table-mobile-md card-table table-hover">
-                                    <thead><tr><th>Name</th><th>Size</th><th>Modified</th><th class="w-1">Actions</th></tr></thead>
+                                <table class="table table-vcenter table-mobile-md card-table">
+                                    <thead><tr><th>Name</th><th>Size</th><th>Modified</th><th class="w-1"></th></tr></thead>
                                     <tbody id="file-list-body">
                                         <tr><td colspan="4" class="text-center">Loading files...</td></tr>
                                     </tbody>
@@ -139,7 +135,9 @@
                         <div class="tab-pane" id="tabs-properties">
                             <form action="/server/<%= instance.uuid %>/properties" method="POST" onsubmit="showGlobalLoader('Saving & Restarting...')">
                                 <div class="mb-3">
-                                    <textarea class="form-control" name="content" rows="20" style="font-family: monospace; font-size: 12px;"><%= properties %></textarea>
+                                    <label class="form-label">server.properties</label>
+                                    <textarea class="form-control" name="content" rows="20" style="font-family: monospace;"><%= properties %></textarea>
+                                    <small class="form-hint text-warning">Note: <code>server-port</code> is managed automatically.</small>
                                 </div>
                                 <div class="d-flex justify-content-end">
                                     <button type="submit" class="btn btn-primary">Save & Restart Server</button>
@@ -150,18 +148,19 @@
                         <div class="tab-pane" id="tabs-world">
                             <div class="row mb-4">
                                 <div class="col-12">
-                                    <h3>Backup</h3>
-                                    <a href="/server/<%= instance.uuid %>/world/download" class="btn btn-outline-primary">Download World (.zip)</a>
+                                    <h3>Download World</h3>
+                                    <a href="/server/<%= instance.uuid %>/world/download" class="btn btn-outline-primary">Dump World (.zip)</a>
                                 </div>
                             </div>
                             <hr>
                             <div class="row mb-4">
                                 <div class="col-12">
-                                    <h3 class="text-warning">Restore</h3>
-                                    <form action="/server/<%= instance.uuid %>/world/upload" method="POST" enctype="multipart/form-data" onsubmit="showGlobalLoader('Restoring World...')">
+                                    <h3 class="text-warning">Upload / Restore World</h3>
+                                    <form action="/server/<%= instance.uuid %>/world/upload" method="POST" enctype="multipart/form-data" onsubmit="showGlobalLoader('Uploading... Please wait.')">
                                         <div class="row g-2">
-                                            <div class="col-md-8"><input type="file" name="worldZip" class="form-control" accept=".zip" required></div>
-                                            <div class="col-md-4"><button type="button" class="btn btn-warning w-100" onclick="confirmFormSubmit(this.form, 'Restore World', 'This will OVERWRITE the current world. Confirm?')">Upload & Restore</button></div>
+                                            <div class="col-md-6"><input type="file" name="worldZip" class="form-control" accept=".zip" required></div>
+                                            <div class="col-md-3"><input type="text" class="form-control" id="confirm-upload-input" placeholder="Type 'UPLOAD' to confirm" onkeyup="checkUploadConfirm()"></div>
+                                            <div class="col-md-3"><button type="submit" id="btn-upload" class="btn btn-warning w-100" disabled>Upload & Restore</button></div>
                                         </div>
                                     </form>
                                 </div>
@@ -169,11 +168,11 @@
                             <hr>
                             <div class="row">
                                 <div class="col-12">
-                                    <h3 class="text-danger">Reset</h3>
-                                    <form action="/server/<%= instance.uuid %>/world/reset" method="POST">
+                                    <h3 class="text-danger">Recreate World (Reset)</h3>
+                                    <form action="/server/<%= instance.uuid %>/world/reset" method="POST" onsubmit="showGlobalLoader('Deleting World...')">
                                         <div class="row g-2">
-                                            <div class="col-md-9"><input type="text" class="form-control" id="confirm-reset-input" placeholder="Type 'RESET' to confirm deletion"></div>
-                                            <div class="col-md-3"><button type="button" class="btn btn-danger w-100" onclick="if(document.getElementById('confirm-reset-input').value==='RESET') confirmFormSubmit(this.form, 'Reset World', 'This will PERMANENTLY DELETE the world folder. Are you sure?'); else showAlert('Error', 'Please type RESET to confirm.');">Delete World</button></div>
+                                            <div class="col-md-9"><input type="text" class="form-control" id="confirm-reset-input" placeholder="Type 'RESET' to confirm deletion" onkeyup="checkResetConfirm()"></div>
+                                            <div class="col-md-3"><button type="submit" id="btn-reset" class="btn btn-danger w-100" disabled>Delete & Regenerate</button></div>
                                         </div>
                                     </form>
                                 </div>
@@ -183,18 +182,19 @@
                         <div class="tab-pane" id="tabs-settings">
                             <form action="/server/<%= instance.uuid %>/settings" method="POST" onsubmit="showGlobalLoader('Saving Settings...')">
                                 <div class="mb-3">
-                                    <label class="form-label">Domain Address (Subdomain)</label>
+                                    <label class="form-label">Domain Address</label>
                                     <input type="text" name="domain" class="form-control" value="<%= instance.domain %>" required>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Start Command</label>
                                     <input type="text" name="startCommand" class="form-control" value="<%= instance.startCommand %>">
                                 </div>
-                                <div class="d-flex justify-content-between mt-4">
-                                    <button type="button" class="btn btn-danger" onclick="confirmAction('Delete Server', 'Are you sure? This action cannot be undone and will delete all server files.', () => postForm('/server/<%= instance.uuid %>/delete'))">Delete Server</button>
+                                <div class="d-flex justify-content-between">
+                                    <button type="button" class="btn btn-danger" onclick="document.getElementById('form-delete').submit()">Delete Server</button>
                                     <button type="submit" class="btn btn-primary">Save Settings</button>
                                 </div>
                             </form>
+                            <form id="form-delete" action="/server/<%= instance.uuid %>/delete" method="POST" onsubmit="return confirm('Delete this server?');" style="display:none;"></form>
                         </div>
 
                     </div>
@@ -205,6 +205,11 @@
   </div>
 </div>
 
+<div id="global-loader">
+    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+    <div id="global-loader-text" class="mt-3 text-white h2">Processing...</div>
+</div>
+
 <div class="modal modal-blur fade" id="modal-player-manager" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
       <div class="modal-content">
@@ -213,20 +218,20 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body p-0">
-            <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light">
-                <span class="text-muted fw-bold" id="player-count-display">Loading...</span>
-                <button class="btn btn-sm btn-outline-secondary" onclick="fetchOnlinePlayers()">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
-                    Refresh List
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <span class="text-muted" id="player-count-display">Loading...</span>
+                <button class="btn btn-sm btn-secondary" onclick="fetchOnlinePlayers()">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+                    Refresh
                 </button>
             </div>
-            <div class="table-responsive" style="max-height: 350px;">
+            <div class="table-responsive" style="max-height: 400px;">
                 <table class="table table-vcenter card-table table-striped">
                     <thead>
                         <tr>
                             <th class="w-1"><input class="form-check-input m-0 align-middle" type="checkbox" id="select-all-players" onclick="toggleSelectAllPlayers(this)"></th>
                             <th class="w-auto">Player</th>
-                            <th>UUID</th>
+                            <th>ID / UUID</th>
                         </tr>
                     </thead>
                     <tbody id="player-list-body">
@@ -234,87 +239,30 @@
                     </tbody>
                 </table>
             </div>
-            <div class="p-3 border-top bg-light">
-                 <label class="form-label small text-muted">Execute Command on Player (Online or Offline)</label>
+            <div class="p-3 bg-dark-lt border-top">
+                 <label class="form-label">Manual Action (Offline Player)</label>
                  <div class="input-group">
-                     <select class="form-select" id="manual-action-select" style="max-width: 140px;">
-                         <option value="kick">Kick</option>
-                         <option value="ban">Ban</option>
-                         <option value="pardon">Unban</option>
-                         <option value="op">Op</option>
-                         <option value="deop">Deop</option>
-                         <option value="gamemode creative">GM Creative</option>
-                         <option value="gamemode survival">GM Survival</option>
-                         <option value="whitelist add">Whitelist Add</option>
-                         <option value="whitelist remove">Whitelist Rem</option>
+                     <select class="form-select" id="manual-action-select" style="max-width: 120px;">
+                         <option value="op">OP</option>
+                         <option value="deop">DEOP</option>
+                         <option value="ban">BAN</option>
+                         <option value="pardon">UNBAN</option>
+                         <option value="whitelist add">W-Add</option>
+                         <option value="whitelist remove">W-Rem</option>
                      </select>
                      <input type="text" class="form-control" id="manual-player-input" placeholder="Player Name">
-                     <button class="btn btn-secondary" onclick="performManualAction()">Execute</button>
+                     <button class="btn btn-secondary" onclick="performManualAction()">Send</button>
                  </div>
             </div>
         </div>
-        <div class="modal-footer bg-light d-flex justify-content-between">
-            <div class="text-muted small">Select players in list for bulk actions:</div>
+        <div class="modal-footer d-flex justify-content-between">
+            <div class="text-muted small">Select players above to perform bulk actions</div>
             <div class="btn-group">
-                <button type="button" class="btn btn-danger" onclick="initBulkAction('kick')">Kick Selected</button>
-                <button type="button" class="btn btn-warning" onclick="initBulkAction('ban')">Ban Selected</button>
-                <button type="button" class="btn btn-secondary" onclick="initBulkAction('op')">OP</button>
-                <button type="button" class="btn btn-secondary" onclick="initBulkAction('deop')">DEOP</button>
+                <button type="button" class="btn btn-danger" onclick="performBulkAction('kick')">Kick</button>
+                <button type="button" class="btn btn-warning" onclick="performBulkAction('ban')">Ban</button>
+                <button type="button" class="btn btn-secondary" onclick="performBulkAction('op')">OP</button>
+                <button type="button" class="btn btn-secondary" onclick="performBulkAction('deop')">DEOP</button>
             </div>
-        </div>
-      </div>
-    </div>
-</div>
-
-<div class="modal modal-blur fade" id="modal-alert" tabindex="-1" style="display: none;" aria-hidden="true">
-    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        <div class="modal-status bg-info" id="modal-alert-status"></div>
-        <div class="modal-body text-center py-4">
-          <h3 id="modal-alert-title">Alert</h3>
-          <div class="text-muted" id="modal-alert-body">Message</div>
-        </div>
-        <div class="modal-footer">
-          <div class="w-100">
-            <div class="row">
-              <div class="col"><a href="#" class="btn w-100" data-bs-dismiss="modal">OK</a></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-</div>
-
-<div class="modal modal-blur fade" id="modal-confirm" tabindex="-1" style="display: none;" aria-hidden="true">
-    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-body">
-          <div class="modal-title" id="modal-confirm-title">Are you sure?</div>
-          <div id="modal-confirm-body">Confirmation message.</div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-link link-secondary me-auto" data-bs-dismiss="modal">Cancel</button>
-          <button type="button" class="btn btn-danger" id="modal-confirm-btn">Yes, proceed</button>
-        </div>
-      </div>
-    </div>
-</div>
-
-<div class="modal modal-blur fade" id="modal-prompt" tabindex="-1" style="display: none;" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-            <h5 class="modal-title" id="modal-prompt-title">Input</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-            <label class="form-label" id="modal-prompt-label">Value</label>
-            <input type="text" class="form-control" id="modal-prompt-input">
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary ms-auto" id="modal-prompt-btn">Confirm</button>
         </div>
       </div>
     </div>
@@ -325,114 +273,43 @@
     <div class="modal-content">
       <div class="modal-header"><h5 class="modal-title" id="editor-filename">Edit</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body"><input type="hidden" id="editor-filepath"><textarea id="editor-content" class="form-control" rows="20" style="font-family: monospace; font-size: 12px;"></textarea></div>
-      <div class="modal-footer"><button type="button" class="btn btn-primary" onclick="saveFile()">Save Changes</button></div>
+      <div class="modal-footer"><button type="button" class="btn btn-primary" onclick="saveFile()">Save</button></div>
     </div>
   </div>
 </div>
-
+<div class="modal modal-blur fade" id="modal-file-rename" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Rename / Move</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body"><input type="hidden" id="rename-old-path"><input type="text" id="rename-new-path" class="form-control"></div>
+        <div class="modal-footer"><button type="button" class="btn btn-primary w-100" onclick="performRename()">Confirm</button></div>
+      </div>
+    </div>
+</div>
 <div class="modal modal-blur fade" id="modal-upload" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
       <div class="modal-content">
         <div class="modal-header"><h5 class="modal-title">Upload File</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body"><input type="file" id="upload-file-input" class="form-control"><input type="hidden" id="upload-current-path"></div>
-        <div class="modal-footer"><button type="button" class="btn btn-primary w-100" onclick="performUpload()">Start Upload</button></div>
+        <div class="modal-footer"><button type="button" class="btn btn-primary w-100" onclick="performUpload()">Upload</button></div>
       </div>
     </div>
 </div>
 
-<div id="global-loader">
-    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
-    <div id="global-loader-text" class="mt-3 text-white h2">Processing...</div>
-</div>
-
-
 <script>
-    // --- UTILS & MODAL HELPERS ---
-    const serverId = '<%= instance.uuid %>';
-    const modalAlert = new bootstrap.Modal(document.getElementById('modal-alert'));
-    const modalConfirm = new bootstrap.Modal(document.getElementById('modal-confirm'));
-    const modalPrompt = new bootstrap.Modal(document.getElementById('modal-prompt'));
-    const modalPlayer = new bootstrap.Modal(document.getElementById('modal-player-manager'));
-
-    // Limpa URL
     const urlParams = new URLSearchParams(window.location.search);
-    if(urlParams.get('success') || urlParams.get('error')) window.history.replaceState({}, document.title, window.location.pathname);
+    if(urlParams.get('success')) window.history.replaceState({}, document.title, window.location.pathname);
 
     function showGlobalLoader(msg) {
         document.getElementById('global-loader-text').innerText = msg || "Processing...";
         document.getElementById('global-loader').classList.add('visible');
     }
 
-    function hideGlobalLoader() {
-        document.getElementById('global-loader').classList.remove('visible');
-    }
-
-    // Custom Alert
-    function showAlert(title, body) {
-        document.getElementById('modal-alert-title').innerText = title;
-        document.getElementById('modal-alert-body').innerText = body;
-        modalAlert.show();
-    }
-
-    // Custom Confirm
-    function confirmAction(title, body, onConfirmCallback) {
-        document.getElementById('modal-confirm-title').innerText = title;
-        document.getElementById('modal-confirm-body').innerText = body;
-        const btn = document.getElementById('modal-confirm-btn');
-        // Remove listeners antigos (clone hack)
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-        
-        newBtn.onclick = () => {
-            modalConfirm.hide();
-            onConfirmCallback();
-        };
-        modalConfirm.show();
-    }
-
-    // Helper para forms simples
-    function confirmFormSubmit(form, title, body) {
-        confirmAction(title, body, () => {
-            showGlobalLoader();
-            form.submit();
-        });
-    }
-    
-    // Helper para post simples via JS
-    function postForm(url, showLoader=true) {
-        if(showLoader) showGlobalLoader();
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = url;
-        document.body.appendChild(form);
-        form.submit();
-    }
-
-    // Custom Prompt
-    function promptModal(title, label, onConfirmCallback, defaultValue = '') {
-        document.getElementById('modal-prompt-title').innerText = title;
-        document.getElementById('modal-prompt-label').innerText = label;
-        const input = document.getElementById('modal-prompt-input');
-        input.value = defaultValue;
-        
-        const btn = document.getElementById('modal-prompt-btn');
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-
-        newBtn.onclick = () => {
-            const val = input.value;
-            if(val) {
-                modalPrompt.hide();
-                onConfirmCallback(val);
-            }
-        };
-        modalPrompt.show();
-        setTimeout(() => input.focus(), 500);
-    }
-
     // --- PLAYER MANAGER LOGIC ---
+    const serverId = '<%= instance.uuid %>';
+    
     function openPlayerModal() {
-        modalPlayer.show();
+        new bootstrap.Modal(document.getElementById('modal-player-manager')).show();
         fetchOnlinePlayers();
     }
 
@@ -446,17 +323,20 @@
             const data = await res.json();
             
             if (!data.success || !data.online) {
-                tbody.innerHTML = '<tr><td colspan="3" class="text-center p-3 text-danger">Server is offline.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center p-3 text-danger">Server is offline or unreachable.</td></tr>';
                 countDisplay.innerText = "Offline";
                 return;
             }
 
             const players = data.playerList || [];
-            countDisplay.innerText = `${data.players} / ${data.max} Players Online`;
+            countDisplay.innerText = `${data.players} / ${data.max} Players`;
             
             if (players.length === 0) {
-                const msg = data.players > 0 ? "Players online but hidden by server config." : "No players online.";
-                tbody.innerHTML = `<tr><td colspan="3" class="text-center p-3 text-muted">${msg}</td></tr>`;
+                if (data.players > 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center p-3 text-muted">Players are online but hidden from query sample.</td></tr>';
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center p-3 text-muted">No players online.</td></tr>';
+                }
                 return;
             }
 
@@ -468,16 +348,18 @@
                     <td>
                         <div class="d-flex py-1 align-items-center">
                             <span class="avatar me-2" style="background-image: url(https://minotar.net/avatar/${p.name}/32)"></span>
-                            <div class="flex-fill font-weight-medium">${p.name}</div>
+                            <div class="flex-fill">
+                                <div class="font-weight-medium">${p.name}</div>
+                            </div>
                         </div>
                     </td>
-                    <td class="text-muted small text-truncate" style="max-width: 150px;">${p.id}</td>
+                    <td class="text-muted text-truncate" style="max-width: 150px;">${p.id}</td>
                 </tr>`;
             });
             tbody.innerHTML = html;
 
         } catch (e) {
-            tbody.innerHTML = `<tr><td colspan="3" class="text-center p-3 text-danger">Connection Error</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="3" class="text-center p-3 text-danger">${e.message}</td></tr>`;
         }
     }
 
@@ -485,208 +367,97 @@
         document.querySelectorAll('.player-checkbox').forEach(cb => cb.checked = source.checked);
     }
 
-    function initBulkAction(action) {
+    async function performBulkAction(action) {
+        // CORRIGIDO: cb.value em vez de Cb.value
         const selected = Array.from(document.querySelectorAll('.player-checkbox:checked')).map(cb => cb.value);
-        if (selected.length === 0) return showAlert("Alert", "Select at least one player.");
+        if (selected.length === 0) return alert("Select at least one player.");
         
-        confirmAction("Bulk Action", `Execute '${action}' on ${selected.length} player(s)?`, () => {
-             performBulkAction(action, selected);
-        });
-    }
+        if (!confirm(`Perform '${action}' on ${selected.length} players?`)) return;
 
-    async function performBulkAction(action, players) {
-        // Envia comandos um por um
-        let count = 0;
-        for (const player of players) {
-            await sendCommandInternal(`${action} ${player}`);
-            count++;
+        let successCount = 0;
+        // Processa em série
+        for (const player of selected) {
+            const command = `${action} ${player}`;
+            try {
+                await fetch(`/server/${serverId}/command`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ command })
+                });
+                successCount++;
+            } catch(e) { console.error(e); }
         }
-        showAlert("Success", `Command '${action}' sent to ${count} players.`);
-        setTimeout(fetchOnlinePlayers, 1000);
+        
+        alert(`Action sent to ${successCount} players.`);
+        fetchOnlinePlayers(); // Refresh list
     }
 
     async function performManualAction() {
-        const player = document.getElementById('manual-player-input').value.trim();
+        const player = document.getElementById('manual-player-input').value;
         const action = document.getElementById('manual-action-select').value;
-        if(!player) return showAlert("Error", "Please enter a player name.");
+        if(!player) return alert("Enter a name");
         
-        await sendCommandInternal(`${action} ${player}`);
-        showAlert("Success", "Command sent.");
-        document.getElementById('manual-player-input').value = "";
-        setTimeout(fetchOnlinePlayers, 1000);
-    }
-
-    async function sendCommandInternal(cmdStr) {
         try {
             await fetch(`/server/${serverId}/command`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ command: cmdStr })
+                body: JSON.stringify({ command: `${action} ${player}` })
             });
-        } catch(e) { console.error(e); }
+            alert("Command sent.");
+            document.getElementById('manual-player-input').value = "";
+            fetchOnlinePlayers();
+        } catch(e) { alert("Error sending command"); }
     }
 
-    async function sendConsoleCommand() {
-        const input = document.getElementById('console-input');
-        const cmd = input.value;
-        if(!cmd) return;
-        await sendCommandInternal(cmd);
-        input.value = '';
-        fetchLogs(); // refresh log imediato
-    }
 
-    // --- CONSOLE & LOGS ---
+    // CONFIRMAÇÕES DE MUNDO
+    function checkUploadConfirm() { document.getElementById('btn-upload').disabled = document.getElementById('confirm-upload-input').value !== 'UPLOAD'; }
+    function checkResetConfirm() { document.getElementById('btn-reset').disabled = document.getElementById('confirm-reset-input').value !== 'RESET'; }
+
+    // LOGS
     function fetchLogs() {
         const consoleEl = document.getElementById('console-output');
-        if(consoleEl.matches(':hover')) return; // Não atualiza se mouse estiver em cima (leitura)
-        
+        if(!consoleEl) return;
         fetch('/server/<%= instance.uuid %>/logs').then(r=>r.text()).then(d=>{
-            const wasAtBottom = (consoleEl.scrollHeight - consoleEl.scrollTop) <= (consoleEl.clientHeight + 50);
             consoleEl.innerText = d || "No logs available.";
-            if(wasAtBottom) consoleEl.scrollTop = consoleEl.scrollHeight;
-        }).catch(e=>console.log(e));
+            if(consoleEl.scrollHeight - consoleEl.scrollTop < 800) consoleEl.scrollTop = consoleEl.scrollHeight;
+        }).catch(e=>consoleEl.innerText="Error.");
     }
     fetchLogs();
     <% if (instance.status == 'running') { %> setInterval(fetchLogs, 3000); <% } %>
 
-
-    // --- FILE MANAGER ---
+    // FILE MANAGER
     let currentPath = '';
-    
     async function loadFiles(path) {
         currentPath = path;
         const tbody = document.getElementById('file-list-body');
         document.getElementById('file-breadcrumb').innerText = path ? '/ ' + path : '/';
         tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
-        
         try {
             const res = await fetch(`/server/${serverId}/files/list?path=${encodeURIComponent(path)}`);
-            const data = await res.json();
+            if(!res.ok) throw new Error("Err"); const data = await res.json();
             tbody.innerHTML = '';
-
-            if(path !== '') {
-                const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
-                tbody.innerHTML += `<tr><td colspan="4"><a href="#" onclick="loadFiles('${parentPath}');return false;" class="text-decoration-none">⬆️ ..</a></td></tr>`;
-            }
-
-            if(!data.files || data.files.length === 0) {
-                tbody.innerHTML += '<tr><td colspan="4" class="text-muted text-center">Empty Directory</td></tr>';
-            } else {
-                data.files.forEach(f => {
-                    const full = path ? path + '/' + f.name : f.name;
-                    const icon = f.isDirectory ? '📁' : '📄';
-                    const nameHtml = f.isDirectory 
-                        ? `<a href="#" onclick="loadFiles('${full}');return false;" class="fw-bold text-decoration-none text-body">${f.name}</a>` 
-                        : f.name;
-                    
-                    let acts = `<div class="btn-list flex-nowrap">`;
-                    acts += `<button class="btn btn-sm btn-icon btn-ghost-secondary" title="Rename" onclick="promptModal('Rename', 'New name:', (n)=>renameFile('${full}', n), '${f.name}')"><svg class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21v-13l9 -4l9 4v13" /></svg>RN</button>`;
-                    acts += `<button class="btn btn-sm btn-icon btn-ghost-danger" title="Delete" onclick="deleteFile('${full}')">❌</button>`;
-                    acts += `<a href="/server/${serverId}/files/download?path=${encodeURIComponent(full)}" class="btn btn-sm btn-icon btn-ghost-primary" title="Download">⬇️</a>`;
-                    
-                    if(!f.isDirectory && f.name.match(/\.(txt|json|yml|properties|log|xml)$/i)) {
-                        acts += `<button class="btn btn-sm btn-icon btn-ghost-success" title="Edit" onclick="editFile('${full}','${f.name}')">✏️</button>`;
-                    }
-                    acts += `</div>`;
-                    
-                    tbody.innerHTML += `
-                    <tr>
-                        <td><span class="me-2">${icon}</span> ${nameHtml}</td>
-                        <td class="text-muted">${f.isDirectory ? '-' : (f.size/1024).toFixed(1)+' KB'}</td>
-                        <td class="text-muted small">${new Date(f.mtime).toLocaleString()}</td>
-                        <td>${acts}</td>
-                    </tr>`;
-                });
-            }
-        } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="text-danger">Error loading files</td></tr>'; }
-    }
-
-    function createFolder(name) {
-        const fullPath = currentPath ? currentPath + '/' + name : name;
-        apiCall('/files/mkdir', { path: fullPath }).then(() => loadFiles(currentPath));
-    }
-
-    function deleteFile(path) {
-        confirmAction("Delete File", "Are you sure you want to delete: " + path + "?", () => {
-            apiCall('/files/delete', { path }).then(() => loadFiles(currentPath));
-        });
-    }
-
-    function renameFile(oldPath, newName) {
-        if(newName === oldPath.split('/').pop()) return;
-        const base = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/')) + '/' : '';
-        const newPath = base + newName;
-        apiCall('/files/rename', { oldPath, newPath }).then(() => loadFiles(currentPath));
-    }
-
-    async function editFile(path, name) {
-        document.getElementById('editor-filename').innerText = name;
-        document.getElementById('editor-filepath').value = path;
-        document.getElementById('editor-content').value = "Loading...";
-        const modal = new bootstrap.Modal(document.getElementById('modal-file-editor'));
-        modal.show();
-        
-        try {
-            const res = await fetch(`/server/${serverId}/files/content?path=${encodeURIComponent(path)}`);
-            const data = await res.json();
-            document.getElementById('editor-content').value = data.content;
-        } catch(e) { document.getElementById('editor-content').value = "Error reading file."; }
-    }
-
-    async function saveFile() {
-        const path = document.getElementById('editor-filepath').value;
-        const content = document.getElementById('editor-content').value;
-        await apiCall('/files/save', { path, content });
-        bootstrap.Modal.getInstance(document.getElementById('modal-file-editor')).hide();
-        loadFiles(currentPath);
-    }
-
-    function openUploadModal() {
-        document.getElementById('upload-current-path').value = currentPath;
-        new bootstrap.Modal(document.getElementById('modal-upload')).show();
-    }
-
-    async function performUpload() {
-        const fileInput = document.getElementById('upload-file-input');
-        if (!fileInput.files[0]) return showAlert("Error", "Select a file first.");
-        
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
-        formData.append('path', document.getElementById('upload-current-path').value);
-        
-        const btn = document.querySelector('#modal-upload .btn-primary');
-        const originalText = btn.innerText;
-        btn.innerText = "Uploading...";
-        btn.disabled = true;
-
-        try {
-            const res = await fetch(`/server/${serverId}/files/upload`, { method: 'POST', body: formData });
-            if(res.ok) {
-                bootstrap.Modal.getInstance(document.getElementById('modal-upload')).hide();
-                loadFiles(currentPath);
-            } else { throw new Error("Upload failed"); }
-        } catch(e) { showAlert("Error", "Upload failed."); }
-        
-        btn.innerText = originalText;
-        btn.disabled = false;
-    }
-
-    // Helper API generico
-    async function apiCall(endpoint, body) {
-        try {
-            const res = await fetch(`/server/${serverId}${endpoint}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(body)
+            if(path!=='') tbody.innerHTML += `<tr><td colspan="4"><a href="#" onclick="loadFiles('${path.substring(0,path.lastIndexOf('/'))}');return false;">..</a></td></tr>`;
+            if(data.files.length===0) tbody.innerHTML += '<tr><td colspan="4" class="text-muted text-center">Empty</td></tr>';
+            data.files.forEach(f=>{
+                const full = path?path+'/'+f.name:f.name;
+                const icon = f.isDirectory?'📁':'📄';
+                const link = f.isDirectory ? `<a href="#" onclick="loadFiles('${full}');return false;" class="fw-bold">${f.name}</a>` : f.name;
+                let acts = `<div class="btn-list flex-nowrap"><button class="btn btn-sm btn-ghost-warning" onclick="openRenameModal('${full}')">Move</button><button class="btn btn-sm btn-ghost-danger" onclick="deleteFile('${full}')">Del</button><a href="/server/${serverId}/files/download?path=${encodeURIComponent(full)}" class="btn btn-sm btn-ghost-secondary">Down</a>`;
+                if(!f.isDirectory && f.name.match(/\.(txt|json|yml|properties|log)$/i)) acts+=`<button class="btn btn-sm btn-ghost-primary" onclick="editFile('${full}','${f.name}')">Edit</button>`;
+                acts+='</div>';
+                tbody.innerHTML+=`<tr><td>${icon} ${link}</td><td>${f.isDirectory?'-':(f.size/1024).toFixed(1)+'KB'}</td><td>${new Date(f.mtime).toLocaleString()}</td><td>${acts}</td></tr>`;
             });
-            const data = await res.json();
-            if(!data.success) throw new Error(data.error || "Unknown error");
-            return data;
-        } catch(e) {
-            showAlert("Error", e.message);
-            throw e;
-        }
+        } catch(e){ tbody.innerHTML = '<tr><td colspan="4" class="text-danger">Error</td></tr>'; }
     }
+    async function deleteFile(path) { if(!confirm('Delete?')) return; await fetch(`/server/${serverId}/files/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})}); loadFiles(currentPath); }
+    async function openCreateFolderModal() { const n = prompt("Name:"); if(n) { await fetch(`/server/${serverId}/files/mkdir`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:currentPath?currentPath+'/'+n:n})}); loadFiles(currentPath); } }
+    function openRenameModal(p) { document.getElementById('rename-old-path').value=p; document.getElementById('rename-new-path').value=p; new bootstrap.Modal(document.getElementById('modal-file-rename')).show(); }
+    async function performRename() { const o=document.getElementById('rename-old-path').value, n=document.getElementById('rename-new-path').value; if(n&&n!==o) await fetch(`/server/${serverId}/files/rename`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oldPath:o,newPath:n})}); bootstrap.Modal.getInstance(document.getElementById('modal-file-rename')).hide(); loadFiles(currentPath); }
+    async function editFile(p,n) { document.getElementById('editor-filename').innerText=n; document.getElementById('editor-filepath').value=p; document.getElementById('editor-content').value="Loading..."; new bootstrap.Modal(document.getElementById('modal-file-editor')).show(); const res=await fetch(`/server/${serverId}/files/content?path=${encodeURIComponent(p)}`); const d=await res.json(); document.getElementById('editor-content').value=d.content; }
+    async function saveFile() { const p=document.getElementById('editor-filepath').value, c=document.getElementById('editor-content').value; await fetch(`/server/${serverId}/files/save`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:p,content:c})}); bootstrap.Modal.getInstance(document.getElementById('modal-file-editor')).hide(); loadFiles(currentPath); }
+    function openUploadModal() { document.getElementById('upload-current-path').value=currentPath; new bootstrap.Modal(document.getElementById('modal-upload')).show(); }
+    async function performUpload() { const i=document.getElementById('upload-file-input'); if(!i.files[0]) return; const f=new FormData(); f.append('file',i.files[0]); f.append('path',document.getElementById('upload-current-path').value); const b=document.querySelector('#modal-upload .btn-primary'); b.innerText="Uploading..."; b.disabled=true; try{await fetch(`/server/${serverId}/files/upload`,{method:'POST',body:f});}catch(e){alert("Error");} b.innerText="Upload";b.disabled=false; bootstrap.Modal.getInstance(document.getElementById('modal-upload')).hide(); loadFiles(currentPath); }
 </script>
 
 <%- include('partials/footer') %>
