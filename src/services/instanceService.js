@@ -5,7 +5,7 @@ const db = require('../database/db');
 const routerService = require('./routerService');
 const AdmZip = require('adm-zip');
 const crypto = require('crypto');
-const mcUtil = require('minecraft-server-util'); // NOVA DEPENDÊNCIA
+const mcUtil = require('minecraft-server-util');
 
 class InstanceService {
     constructor() {
@@ -13,7 +13,7 @@ class InstanceService {
         this.activeProcesses = {};
         this.routerPort = parseInt(process.env.MC_ROUTER_PORT || 25565);
         this.retryCounters = {};
-        fs.ensureDirSync(path.join(process.cwd(), 'temp_uploads'));
+        fs.ensureDirSync(this.instancesDir);
     }
 
     async createInstance(name, domain, file, customCommand) {
@@ -33,19 +33,21 @@ class InstanceService {
                     await fs.move(file.path, path.join(instanceFolder, jarName));
                     await fs.writeFile(path.join(instanceFolder, 'eula.txt'), 'eula=true');
                     
-                    // FORÇA query habilitada na criação
                     const props = `server-port=${port}\nonline-mode=false\nenable-query=true\nquery.port=${port}`;
                     await fs.writeFile(path.join(instanceFolder, 'server.properties'), props);
-                    
                     await fs.writeFile(path.join(instanceFolder, 'latest.log'), '');
                 } catch (ioErr) { return reject(ioErr); }
                 
                 let cmd = customCommand || 'java -Xmx1024M -Xms1024M -jar {jar} nogui';
                 cmd = cmd.replace('{jar}', jarName);
                 
-                db.run("INSERT INTO instances (uuid, name, domain, port, jarFile, startCommand) VALUES (?, ?, ?, ?, ?, ?)", [uuid, name, domain, port, jarName, cmd], function (dbErr) {
+                db.run("INSERT INTO instances (uuid, name, domain, port, jarFile, startCommand) VALUES (?, ?, ?, ?, ?, ?)", 
+                    [uuid, name, domain, port, jarName, cmd], 
+                    function (dbErr) {
                         if (dbErr) return reject(dbErr);
-                        db.run("INSERT INTO routes (sourceDomain, listeningPort, destHost, destPort, description) VALUES (?, ?, ?, ?, ?)", [domain, this.routerPort, '127.0.0.1', port, `Auto-generated for ${name}`], (routeErr) => { if (!routeErr) routerService.syncAndRestart(); });
+                        db.run("INSERT INTO routes (sourceDomain, listeningPort, destHost, destPort, description) VALUES (?, ?, ?, ?, ?)", 
+                            [domain, this.routerPort, '127.0.0.1', port, `Auto-generated for ${name}`], 
+                            (routeErr) => { if (!routeErr) routerService.syncAndRestart(); });
                         resolve({ uuid, port, name });
                     });
             });
@@ -71,22 +73,33 @@ class InstanceService {
             db.get("SELECT * FROM instances WHERE uuid = ?", [uuid], async (err, instance) => {
                 if (err || !instance) return reject("Instância não encontrada");
                 if (this.activeProcesses[uuid]) return resolve(this.activeProcesses[uuid].pid);
+                
                 const instanceFolder = path.join(this.instancesDir, instance.name);
                 const args = instance.startCommand.split(' ');
                 const command = args.shift();
+                
                 try { await fs.writeFile(path.join(instanceFolder, 'eula.txt'), 'eula=true'); } catch (e) {}
+                
                 const logFile = fs.createWriteStream(path.join(instanceFolder, 'latest.log'), { flags: 'a' });
                 console.log(`Iniciando servidor ${instance.name} (UUID: ${uuid})...`);
+                
                 const child = spawn(command, args, { cwd: instanceFolder, stdio: ['ignore', 'pipe', 'pipe'] });
+                
                 child.stdout.on('data', (data) => { logFile.write(data); process.stdout.write(`[${instance.name}] ${data}`); });
                 child.stderr.on('data', (data) => { logFile.write(data); process.stderr.write(`[${instance.name} ERR] ${data}`); });
+                
                 this.activeProcesses[uuid] = child;
                 db.run("UPDATE instances SET status = 'running', pid = ? WHERE uuid = ?", [child.pid, uuid]);
+                
                 child.on('close', (code) => {
-                    logFile.end(); delete this.activeProcesses[uuid];
+                    logFile.end(); 
+                    delete this.activeProcesses[uuid];
                     if (code === 0 || code === null || code === 143 || code === 130) {
-                        this.retryCounters[uuid] = 0; db.run("UPDATE instances SET status = 'stopped', pid = null WHERE uuid = ?", [uuid]);
-                    } else { this.handleCrash(uuid); }
+                        this.retryCounters[uuid] = 0; 
+                        db.run("UPDATE instances SET status = 'stopped', pid = null WHERE uuid = ?", [uuid]);
+                    } else { 
+                        this.handleCrash(uuid); 
+                    }
                 });
                 resolve(child.pid);
             });
@@ -100,7 +113,8 @@ class InstanceService {
             db.run("UPDATE instances SET status = 'restarting' WHERE uuid = ?", [uuid]);
             setTimeout(() => { this.startInstance(uuid).catch(err => console.error(err)); }, 5000);
         } else {
-            this.retryCounters[uuid] = 0; db.run("UPDATE instances SET status = 'crashed', pid = null WHERE uuid = ?", [uuid]);
+            this.retryCounters[uuid] = 0; 
+            db.run("UPDATE instances SET status = 'crashed', pid = null WHERE uuid = ?", [uuid]);
         }
     }
 
@@ -129,7 +143,12 @@ class InstanceService {
             db.get("SELECT name FROM instances WHERE uuid = ?", [uuid], async (err, row) => {
                 if (err || !row) return resolve("");
                 const logPath = path.join(this.instancesDir, row.name, 'latest.log');
-                try { if (await fs.pathExists(logPath)) { const data = await fs.readFile(logPath, 'utf8'); resolve(data.slice(-50000)); } else { resolve("Log file not found yet."); } } catch (e) { resolve("Error reading logs."); }
+                try { 
+                    if (await fs.pathExists(logPath)) { 
+                        const data = await fs.readFile(logPath, 'utf8'); 
+                        resolve(data.slice(-50000)); 
+                    } else { resolve("Log file not found yet."); } 
+                } catch (e) { resolve("Error reading logs."); }
             });
         });
     }
@@ -144,7 +163,6 @@ class InstanceService {
         });
     }
 
-    // --- SALVAR PROPERTIES (MODIFICADO) ---
     async saveProperties(uuid, content) {
         return new Promise((resolve, reject) => {
             db.get("SELECT name, port FROM instances WHERE uuid = ?", [uuid], async (err, row) => {
@@ -152,62 +170,33 @@ class InstanceService {
                 const propPath = path.join(this.instancesDir, row.name, 'server.properties');
                 
                 let safeContent = content;
-
-                // 1. FORÇA A PORTA CORRETA
                 const portRegex = /^server-port=.*/m;
-                if (portRegex.test(safeContent)) {
-                    safeContent = safeContent.replace(portRegex, `server-port=${row.port}`);
-                } else {
-                    safeContent += `\nserver-port=${row.port}`;
-                }
+                if (portRegex.test(safeContent)) safeContent = safeContent.replace(portRegex, `server-port=${row.port}`);
+                else safeContent += `\nserver-port=${row.port}`;
 
-                // 2. FORÇA QUERY ENABLED e QUERY PORT
                 const queryRegex = /^enable-query=.*/m;
-                if (queryRegex.test(safeContent)) {
-                    safeContent = safeContent.replace(queryRegex, `enable-query=true`);
-                } else {
-                    safeContent += `\nenable-query=true`;
-                }
+                if (queryRegex.test(safeContent)) safeContent = safeContent.replace(queryRegex, `enable-query=true`);
+                else safeContent += `\nenable-query=true`;
 
                 const queryPortRegex = /^query\.port=.*/m;
-                if (queryPortRegex.test(safeContent)) {
-                    safeContent = safeContent.replace(queryPortRegex, `query.port=${row.port}`);
-                } else {
-                    safeContent += `\nquery.port=${row.port}`;
-                }
+                if (queryPortRegex.test(safeContent)) safeContent = safeContent.replace(queryPortRegex, `query.port=${row.port}`);
+                else safeContent += `\nquery.port=${row.port}`;
 
-                try {
-                    await fs.writeFile(propPath, safeContent);
-                    resolve();
-                } catch (e) { reject(e); }
+                try { await fs.writeFile(propPath, safeContent); resolve(); } catch (e) { reject(e); }
             });
         });
     }
 
-    // --- NOVO MÉTODO: OBTER STATUS DO JOGO ---
     async getServerStatus(uuid) {
         return new Promise((resolve, reject) => {
             db.get("SELECT port, status FROM instances WHERE uuid = ?", [uuid], async (err, row) => {
                 if (err || !row) return reject("Server not found");
-                
-                // Se o servidor estiver parado no DB, nem tenta pingar
-                if (row.status !== 'running') {
-                    return resolve({ online: false, players: 0, max: 0 });
-                }
+                if (row.status !== 'running') return resolve({ online: false, players: 0, max: 0 });
 
                 try {
-                    // Tenta conectar via TCP (Server List Ping) no localhost
                     const status = await mcUtil.status('127.0.0.1', row.port, { timeout: 1000 });
-                    resolve({
-                        online: true,
-                        players: status.players.online,
-                        max: status.players.max,
-                        version: status.version.name
-                    });
-                } catch (e) {
-                    // Se falhar o ping, considera offline ou carregando
-                    resolve({ online: false, players: 0, max: 0 });
-                }
+                    resolve({ online: true, players: status.players.online, max: status.players.max, version: status.version.name });
+                } catch (e) { resolve({ online: false, players: 0, max: 0 }); }
             });
         });
     }
@@ -279,91 +268,6 @@ class InstanceService {
         });
     }
 
-    async _resolveSafePath(instanceUuid, subpath) {
-        return new Promise((resolve, reject) => {
-            db.get("SELECT name FROM instances WHERE uuid = ?", [instanceUuid], (err, row) => {
-                if (err || !row) return reject("Server not found");
-                const rootPath = path.resolve(this.instancesDir, row.name);
-                const requestedPath = path.resolve(rootPath, subpath || '.');
-                if (!requestedPath.startsWith(rootPath)) { return reject("Access Denied: Path traversal detected"); }
-                resolve({ fullPath: requestedPath, rootPath, instanceName: row.name });
-            });
-        });
-    }
-
-    async listFiles(uuid, subpath) {
-        try {
-            const { fullPath } = await this._resolveSafePath(uuid, subpath);
-            if (!await fs.pathExists(fullPath)) return [];
-            const stats = await fs.stat(fullPath);
-            if (!stats.isDirectory()) return [];
-            const files = await fs.readdir(fullPath, { withFileTypes: true });
-            const result = (await Promise.all(files.map(async (file) => {
-                try {
-                    const filePath = path.join(fullPath, file.name);
-                    const fileStat = await fs.stat(filePath);
-                    return { name: file.name, isDirectory: file.isDirectory(), size: fileStat.size, mtime: fileStat.mtime };
-                } catch (err) { return null; }
-            }))).filter(x => x !== null);
-            return result.sort((a, b) => {
-                if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
-                return a.isDirectory ? -1 : 1;
-            });
-        } catch (e) { throw new Error("Error listing files: " + e.message); }
-    }
-
-    async getFileContent(uuid, subpath) {
-        try { const { fullPath } = await this._resolveSafePath(uuid, subpath); return await fs.readFile(fullPath, 'utf8'); } catch (e) { throw new Error("Error reading file"); }
-    }
-
-    async writeFileContent(uuid, subpath, content) {
-        try { const { fullPath } = await this._resolveSafePath(uuid, subpath); await fs.writeFile(fullPath, content, 'utf8'); } catch (e) { throw new Error("Error writing file"); }
-    }
-
-    async createDirectory(uuid, subpath) {
-        try { const { fullPath } = await this._resolveSafePath(uuid, subpath); await fs.ensureDir(fullPath); } catch (e) { throw new Error("Error creating directory"); }
-    }
-
-    async deleteFileOrFolder(uuid, subpath) {
-        try { const { fullPath, rootPath } = await this._resolveSafePath(uuid, subpath); if (fullPath === rootPath) throw new Error("Cannot delete root folder"); await fs.remove(fullPath); } catch (e) { throw new Error("Error deleting"); }
-    }
-
-    async renameFile(uuid, oldPath, newPath) {
-        try {
-            const { fullPath: oldFull } = await this._resolveSafePath(uuid, oldPath);
-            const { fullPath: newFull } = await this._resolveSafePath(uuid, newPath);
-            await fs.ensureDir(path.dirname(newFull));
-            await fs.move(oldFull, newFull, { overwrite: true });
-        } catch (e) { throw new Error("Error moving/renaming: " + e.message); }
-    }
-
-    async uploadFileToFolder(uuid, subpath, file) {
-        try {
-            const { fullPath } = await this._resolveSafePath(uuid, subpath);
-            let targetDir = fullPath;
-            if (await fs.pathExists(fullPath) && (await fs.stat(fullPath)).isFile()) targetDir = path.dirname(fullPath);
-            if (!await fs.pathExists(targetDir)) await fs.ensureDir(targetDir);
-            await fs.move(file.path, path.join(targetDir, file.originalname), { overwrite: true });
-        } catch (e) { throw new Error("Error uploading file"); }
-    }
-    
-    async getDownloadPath(uuid, subpath) {
-        const { fullPath, instanceName } = await this._resolveSafePath(uuid, subpath);
-        if (!await fs.pathExists(fullPath)) throw new Error("Path not found");
-        const stats = await fs.stat(fullPath);
-        if (stats.isFile()) {
-            return { path: fullPath, name: path.basename(fullPath), isTemp: false };
-        } else if (stats.isDirectory()) {
-            const zip = new AdmZip();
-            zip.addLocalFolder(fullPath);
-            const zipName = `${path.basename(fullPath)}.zip`;
-            const tempPath = path.join(process.cwd(), 'temp_uploads', `${instanceName}_${Date.now()}_${zipName}`);
-            zip.writeZip(tempPath);
-            return { path: tempPath, name: zipName, isTemp: true };
-        }
-        throw new Error("Invalid path type");
-    }
-
     async updateSettings(uuid, { domain, startCommand }) {
         return new Promise((resolve, reject) => {
             db.get("SELECT port FROM instances WHERE uuid = ?", [uuid], (err, row) => {
@@ -384,14 +288,10 @@ class InstanceService {
         return new Promise((resolve, reject) => {
             const process = this.activeProcesses[uuid];
             if (!process) return reject("Server is not running. Start it to manage players.");
-            
             try {
-                // Escreve o comando no stdin do processo (simula digitar no terminal)
                 process.stdin.write(command + "\n");
                 resolve();
-            } catch (error) {
-                reject("Failed to send command: " + error.message);
-            }
+            } catch (error) { reject("Failed to send command: " + error.message); }
         });
     }
 }
